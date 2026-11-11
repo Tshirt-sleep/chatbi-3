@@ -1,6 +1,6 @@
 # P9 部署操作手册（草案）
 
-本手册针对公开 Mock 演示。当前本地 `master` 分支尚无 commit/remote，且尚未创建云资源；部署前要建立 Git 托管远端并推送项目，让 Netlify/Render 可导入。源码仓库可以保持私有；公开的是演示网站。
+本手册针对公开 Mock 演示。GitHub 私有仓库已创建，`master` 的两个本地提交已推送；尚未创建 Supabase/Render/Netlify 云资源。源码仓库保持私有；公开的是演示网站。
 
 ## 1. Supabase：建立专用 Mock 数据库
 
