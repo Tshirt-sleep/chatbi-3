@@ -4,7 +4,7 @@
 
 ## 1. Supabase：建立专用 Mock 数据库
 
-1. 在 Supabase 创建一个新的个人项目，建议选择 Singapore 区域；不要复用包含真实数据的项目。
+1. 先查看“台词检索网站”所在 Supabase 组织的套餐。如果该组织是 Free，为了避免升级时连旧项目也计入 Pro 计算费，建议新建一个只放 ChatBI 的 Pro 组织；如果旧项目已在 Pro 组织内，可在同组织新建一个独立 ChatBI 项目，接受约 $10/月额外 Micro 计算费。然后在选定组织中新建专用 ChatBI Mock 项目，选择 Singapore；不要复用包含真实数据的项目。
 2. 设置唯一数据库密码并保存到密码管理器，不发到聊天、不写入 `.env.example` 或代码。
 3. 在项目的 Connect 页面复制 **Session pooler** 连接串（端口 5432）。调整 SQLAlchemy scheme 为 `postgresql+psycopg://`，保留查询参数中的 TLS 设置。该连接串只用于后端。
 4. 在本机项目根目录使用 SecureString 提示初始化空库 schema。今后新增 Alembic migration 时，也要先在本机执行此命令成功，再部署应用版本：

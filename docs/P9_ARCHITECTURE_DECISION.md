@@ -11,7 +11,7 @@
 | ADR-P9-01 | 使用 Supabase PostgreSQL，区域优先 Singapore | 项目方已有 Supabase 使用经验；不部署大陆站点；创建时仍需核实控制台是否提供该区域 |
 | ADR-P9-02 | Netlify Free 托管 React/Vite 静态前端 | 静态站点无需常驻计算；先使用 Netlify 平台子域名 |
 | ADR-P9-03 | Render Singapore Starter 托管 FastAPI | 保留现有 Python API；最小付费常驻规格用于避免 Free 休眠 |
-| ADR-P9-04 | 估算固定月费 $32（约 ¥215） | Netlify $0 + Render $7 + Supabase Pro $25；DeepSeek 调用、超额用量、税费及自定义域名另计；报价依据见云平台比较文档 |
+| ADR-P9-04 | 独立 Supabase Pro 组织单 Micro 项目时估算固定月费 $32（约 ¥215） | Netlify $0 + Render $7 + Supabase Pro $25；用户已有 Supabase 项目，需核对其组织计划，若同一 Pro 组织增加项目，当前账号总账单估算约 $42；DeepSeek 调用、超额用量、税费及自定义域名另计 |
 | ADR-P9-05 | Render API 单实例 | 当前会话、澄清状态、debug owner 均在进程内存；不支持多副本共享。重启后已有会话失效，用户可重新开始 |
 | ADR-P9-06 | 公开匿名演示只使用 Mock 数据 | 前端允许切换演示角色；API 将角色能力限定为演示权限。公开模式关闭 SQL debug 和管理员反馈汇总 |
 | ADR-P9-07 | 发布首版默认关闭 DeepSeek | 公开匿名入口可能导致模型费用被第三方触发；完成调用限额和账单告警方案后，再单独启用 |

@@ -28,7 +28,7 @@
 
 ### P9-1 选择目标云平台与运行边界（已确认）
 
-项目方已确认 Supabase 作为数据库方向、网站可以部署在中国大陆以外、整站基础月费约 $32（约 ¥215）可接受，公开 Mock 演示可以保留角色切换但不能提供真实管理权限，先使用供应商子域名。应用平台选型已记录为 Netlify Free + Render Singapore Starter + Supabase Pro Singapore；架构和运维步骤见 [P9 架构决策](P9_ARCHITECTURE_DECISION.md) 与 [P9 部署操作手册](P9_DEPLOYMENT_RUNBOOK.md)。项目尚无可连接 Netlify/Render 的 Git 远端，供应商资源也未创建，因此云端步骤尚未执行。
+项目方已确认 Supabase 作为数据库方向、网站可以部署在中国大陆以外、独立 Supabase Pro 组织单 Micro 项目时整站基础月费约 $32（约 ¥215）可接受，公开 Mock 演示可以保留角色切换但不能提供真实管理权限，先使用供应商子域名。应用平台选型已记录为 Netlify Free + Render Singapore Starter + Supabase Pro Singapore；项目方已有另一个 Supabase 网站，故创建前需核对该项目所在组织是 Free 还是 Pro，以确认账户总账单。项目尚无 GitHub 登录或远端；Git 本地首次提交已创建。
 
 **产物**：云平台决策记录、架构图、费用估算、私网/公网访问边界、责任人。
 
@@ -94,7 +94,7 @@
 
 ## 5. P9-1 决策与 P9-2 当前方案
 
-项目方确认使用 Supabase，网站可以部署在中国大陆以外；公开访问仅承载 Mock 数据，角色切换不可取得真实管理员权限；使用 Netlify/Render 平台子域名，不购买域名；已接受 $32/月基础估算，DeepSeek 调用另计。网络可达性在部署后从中国大陆实测，不作保证。
+项目方确认使用 Supabase，网站可以部署在中国大陆以外；公开访问仅承载 Mock 数据，角色切换不可取得真实管理员权限；使用 Netlify/Render 平台子域名，不购买域名；已接受“独立 Supabase Pro 组织单项目”$32/月基础估算，DeepSeek 调用另计。因用户已有 Supabase 项目，实际账号总账单需先核对旧项目组织计划。网络可达性在部署后从中国大陆实测，不作保证。
 
 **当前下一步**：完成本地适配静态检查和回归验收；然后由项目方准备 Git 远端并在 Supabase 创建专用 Mock 项目。真实连接串只在本机或供应商控制台配置，不通过聊天传递。
 
