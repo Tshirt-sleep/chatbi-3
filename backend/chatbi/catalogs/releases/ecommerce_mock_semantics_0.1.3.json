@@ -1,0 +1,372 @@
+{
+  "schema_version": "1",
+  "catalog_id": "ecommerce_mock_semantics",
+  "version": "0.1.3",
+  "status": "active",
+  "dataset_id": "ecommerce_mock_v1",
+  "timezone": "Asia/Shanghai",
+  "change_note": "补充模型提示用能力说明、周期要求及自然语言示例；业务语义保持 P3 已确认口径",
+  "metrics": [
+    {
+      "id": "sales_amount",
+      "label": "销售额",
+      "definition": "符合有效订单条件的去重订单，其折后实付金额之和；按支付时间归属日期，不扣退款。",
+      "unit": "CNY",
+      "aliases": [
+        "销售额",
+        "GMV",
+        "流水"
+      ],
+      "allowed_dimension_ids": [
+        "order_date",
+        "product",
+        "category",
+        "channel"
+      ],
+      "implementation_id": "sales_amount",
+      "status": "active"
+    },
+    {
+      "id": "order_count",
+      "label": "订单数",
+      "definition": "符合有效订单条件的去重 order_id 数；商品/类目分组按每个订单是否涉及该项计数。",
+      "unit": "order",
+      "aliases": [
+        "订单数",
+        "订单量",
+        "成交订单数"
+      ],
+      "allowed_dimension_ids": [
+        "order_date",
+        "product",
+        "category",
+        "channel"
+      ],
+      "implementation_id": "order_count",
+      "status": "active"
+    },
+    {
+      "id": "average_order_value",
+      "label": "客单价",
+      "definition": "所选期间销售额除以去重有效订单数；分组后在该组内重新计算。",
+      "unit": "CNY/order",
+      "aliases": [
+        "客单价",
+        "平均订单金额"
+      ],
+      "allowed_dimension_ids": [
+        "order_date",
+        "product",
+        "category",
+        "channel"
+      ],
+      "implementation_id": "average_order_value",
+      "status": "active"
+    },
+    {
+      "id": "refund_rate",
+      "label": "退款率",
+      "definition": "首版口径尚未定义，不可执行。",
+      "unit": "percent",
+      "aliases": [],
+      "allowed_dimension_ids": [],
+      "implementation_id": null,
+      "status": "unsupported"
+    }
+  ],
+  "dimensions": [
+    {
+      "id": "order_date",
+      "label": "支付日期",
+      "definition": "按 orders.paid_at 转换为 Asia/Shanghai 自然日。",
+      "aliases": [
+        "日期",
+        "每天",
+        "每日"
+      ],
+      "allowed_metric_ids": [
+        "sales_amount",
+        "order_count",
+        "average_order_value"
+      ],
+      "field_refs": [
+        "orders.paid_at"
+      ],
+      "implementation_id": "order_date",
+      "status": "active"
+    },
+    {
+      "id": "product",
+      "label": "商品",
+      "definition": "商品 ID 和名称；按 order_items 关联商品明细聚合。",
+      "aliases": [
+        "商品",
+        "产品",
+        "单品",
+        "SKU"
+      ],
+      "allowed_metric_ids": [
+        "sales_amount",
+        "order_count",
+        "average_order_value"
+      ],
+      "field_refs": [
+        "products.product_id",
+        "products.product_name"
+      ],
+      "implementation_id": "product",
+      "status": "active"
+    },
+    {
+      "id": "category",
+      "label": "类目",
+      "definition": "仅叶子类目；一个商品只归属一个主要叶子类目；同一订单可涉及多个类目。",
+      "aliases": [
+        "类目",
+        "品类"
+      ],
+      "allowed_metric_ids": [
+        "sales_amount",
+        "order_count",
+        "average_order_value"
+      ],
+      "field_refs": [
+        "products.primary_leaf_category_id",
+        "categories.category_id"
+      ],
+      "implementation_id": "category",
+      "status": "active"
+    },
+    {
+      "id": "channel",
+      "label": "渠道",
+      "definition": "订单唯一所属渠道。",
+      "aliases": [
+        "渠道"
+      ],
+      "allowed_metric_ids": [
+        "sales_amount",
+        "order_count",
+        "average_order_value"
+      ],
+      "field_refs": [
+        "orders.channel_id",
+        "channels.channel_id"
+      ],
+      "implementation_id": "channel",
+      "status": "active"
+    },
+    {
+      "id": "region",
+      "label": "地区",
+      "definition": "省级合成地区代码，首版不支持查询。",
+      "aliases": [
+        "地区",
+        "区域"
+      ],
+      "allowed_metric_ids": [],
+      "field_refs": [
+        "customers.region_code"
+      ],
+      "implementation_id": null,
+      "status": "inactive"
+    }
+  ],
+  "relationships": [
+    {
+      "id": "order_to_items",
+      "from_ref": "orders.order_id",
+      "to_ref": "order_items.order_id",
+      "cardinality": "one_to_many",
+      "aggregation_rule": "订单数按 order_id 去重；明细销售额按 line_amount_after_discount 汇总。"
+    },
+    {
+      "id": "items_to_product",
+      "from_ref": "order_items.product_id",
+      "to_ref": "products.product_id",
+      "cardinality": "many_to_one",
+      "aggregation_rule": "商品分组使用商品 ID；订单数按商品涉及关系去重。"
+    },
+    {
+      "id": "product_to_category",
+      "from_ref": "products.primary_leaf_category_id",
+      "to_ref": "categories.category_id",
+      "cardinality": "many_to_one",
+      "aggregation_rule": "每件商品只归属一个主要叶子类目；类目订单数按订单是否涉及该类目分别计数。"
+    },
+    {
+      "id": "order_to_channel",
+      "from_ref": "orders.channel_id",
+      "to_ref": "channels.channel_id",
+      "cardinality": "many_to_one",
+      "aggregation_rule": "每个订单只归属一个渠道。"
+    }
+  ],
+  "terms": [
+    {
+      "id": "income",
+      "text": "收入",
+      "resolution": "ambiguous",
+      "target_id": null,
+      "candidate_ids": [],
+      "note": "说明已定义的销售额口径，并询问收入具体指什么；澄清前不查询。"
+    },
+    {
+      "id": "revenue",
+      "text": "营收",
+      "resolution": "ambiguous",
+      "target_id": null,
+      "candidate_ids": [
+        "sales_amount"
+      ],
+      "note": "未确认与销售额同义，须澄清。"
+    },
+    {
+      "id": "turnover",
+      "text": "营业额",
+      "resolution": "ambiguous",
+      "target_id": null,
+      "candidate_ids": [
+        "sales_amount"
+      ],
+      "note": "未确认与销售额同义，须澄清。"
+    },
+    {
+      "id": "transaction_amount",
+      "text": "成交金额",
+      "resolution": "ambiguous",
+      "target_id": null,
+      "candidate_ids": [
+        "sales_amount"
+      ],
+      "note": "候选别名，业务口径未明确确认。"
+    },
+    {
+      "id": "refund_rate_term",
+      "text": "退款率",
+      "resolution": "unsupported",
+      "target_id": "refund_rate",
+      "candidate_ids": [],
+      "note": "首版不支持，不返回估算值。"
+    }
+  ],
+  "policies": {
+    "valid_order_statuses": [
+      "paid",
+      "completed"
+    ],
+    "paid_at_required": true,
+    "sales_amount_basis": "discounted_paid_amount_before_refund",
+    "order_count_basis": "distinct_order_id",
+    "category_order_count_basis": "count_once_per_involved_category",
+    "timezone": "Asia/Shanghai",
+    "time_interval": "half_open",
+    "reference_date_source": "dataset_manifest.as_of_date",
+    "dataset_window_source": "dataset_manifest.date_window",
+    "week_start_day": 1
+  },
+  "capabilities": [
+    {
+      "id": "uq01",
+      "description": "昨日销售额与去重订单数汇总",
+      "requires_explicit_time_range": false,
+      "requires_comparison_period": false,
+      "metric_ids": [
+        "sales_amount",
+        "order_count"
+      ],
+      "dimension_ids": [],
+      "template_id": "uq01_daily_summary"
+    },
+    {
+      "id": "uq02",
+      "description": "最近 7 个完整自然日（不含参考日）的每日销售额趋势；用户说最近一周或最近 7 天时均按参考日前 7 天计算",
+      "requires_explicit_time_range": false,
+      "requires_comparison_period": false,
+      "metric_ids": [
+        "sales_amount"
+      ],
+      "dimension_ids": [
+        "order_date"
+      ],
+      "template_id": "uq02_daily_sales_trend"
+    },
+    {
+      "id": "uq03",
+      "description": "本月与上月销售额比较",
+      "requires_explicit_time_range": false,
+      "requires_comparison_period": true,
+      "metric_ids": [
+        "sales_amount"
+      ],
+      "dimension_ids": [],
+      "template_id": "uq03_monthly_comparison"
+    },
+    {
+      "id": "uq04",
+      "description": "按销售额排序的商品 Top 10",
+      "requires_explicit_time_range": true,
+      "requires_comparison_period": false,
+      "metric_ids": [
+        "sales_amount"
+      ],
+      "dimension_ids": [
+        "product"
+      ],
+      "template_id": "uq04_product_top"
+    },
+    {
+      "id": "uq05",
+      "description": "按叶子类目（品类）汇总销售额和该类目涉及订单数；用户说订单与成交表现时，分别对应订单数与销售额",
+      "requires_explicit_time_range": true,
+      "requires_comparison_period": false,
+      "metric_ids": [
+        "order_count",
+        "sales_amount"
+      ],
+      "dimension_ids": [
+        "category"
+      ],
+      "template_id": "uq05_category_summary"
+    },
+    {
+      "id": "uq06",
+      "description": "按渠道计算客单价",
+      "requires_explicit_time_range": true,
+      "requires_comparison_period": false,
+      "metric_ids": [
+        "average_order_value"
+      ],
+      "dimension_ids": [
+        "channel"
+      ],
+      "template_id": "uq06_channel_aov"
+    },
+    {
+      "id": "uq08",
+      "description": "比较本周与上周同期的类目销售额",
+      "requires_explicit_time_range": false,
+      "requires_comparison_period": true,
+      "metric_ids": [
+        "sales_amount"
+      ],
+      "dimension_ids": [
+        "category"
+      ],
+      "template_id": "uq08_category_comparison"
+    },
+    {
+      "id": "uq09",
+      "description": "将销售额变化分解为订单数变化与客单价变化，只描述数据变化，不推断因果",
+      "requires_explicit_time_range": false,
+      "requires_comparison_period": true,
+      "metric_ids": [
+        "order_count",
+        "sales_amount",
+        "average_order_value"
+      ],
+      "dimension_ids": [],
+      "template_id": "uq09_period_summary"
+    }
+  ]
+}

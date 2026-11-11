@@ -1,0 +1,13 @@
+[build]
+base = "frontend"
+command = "npm run build"
+publish = "dist"
+
+[build.environment]
+VITE_CHATBI_PUBLIC_DEMO = "true"
+NODE_VERSION = "24.16.0"
+
+[[redirects]]
+from = "/*"
+to = "/index.html"
+status = 200

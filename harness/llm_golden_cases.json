@@ -1,0 +1,75 @@
+{
+  "suite_id": "ecommerce_chatbi_p7_intent_v1",
+  "prompt_version": "p7-intent-v6",
+  "max_cases": 7,
+  "cases": [
+    {
+      "id": "P7-01-product-top-alias",
+      "question": "近30天GMV最高的SKU排行",
+      "expected": {
+        "status": "ready",
+        "question_kind": "uq04",
+        "metric_ids": ["sales_amount"],
+        "dimension_ids": ["product"],
+        "time_range": ["2026-07-02", "2026-08-01"],
+        "limit": 10
+      }
+    },
+    {
+      "id": "P7-02-category-alias",
+      "question": "最近30天GMV按品类汇总订单和成交表现",
+      "expected": {
+        "status": "ready",
+        "question_kind": "uq05",
+        "metric_ids": ["order_count", "sales_amount"],
+        "dimension_ids": ["category"],
+        "time_range": ["2026-07-02", "2026-08-01"]
+      }
+    },
+    {
+      "id": "P7-03-channel-aov-alias",
+      "question": "统计最近30天每个渠道的平均订单金额",
+      "expected": {
+        "status": "ready",
+        "question_kind": "uq06",
+        "metric_ids": ["average_order_value"],
+        "dimension_ids": ["channel"],
+        "time_range": ["2026-07-02", "2026-08-01"]
+      }
+    },
+    {
+      "id": "P7-04-weekly-trend-alias",
+      "question": "最近一周GMV趋势",
+      "expected": {
+        "status": "ready",
+        "question_kind": "uq02",
+        "metric_ids": ["sales_amount"],
+        "dimension_ids": ["order_date"],
+        "time_range": ["2026-07-25", "2026-08-01"]
+      }
+    },
+    {
+      "id": "P7-05-missing-time",
+      "question": "SKU热销排行榜",
+      "expected": {
+        "status": "clarification_required",
+        "question_kind": "uq04"
+      }
+    },
+    {
+      "id": "P7-06-unknown-business-term",
+      "question": "最近30天外太空舱销量趋势",
+      "expected": {
+        "status": "unknown_term"
+      }
+    },
+    {
+      "id": "P7-07-out-of-range-date",
+      "question": "最近500天表现最好的SKU排行",
+      "expected": {
+        "status": "clarification_required",
+        "question_kind": "uq04"
+      }
+    }
+  ]
+}

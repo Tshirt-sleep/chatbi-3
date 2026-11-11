@@ -1,0 +1,5 @@
+plan_id,plan_name,monthly_fee_cents,status
+plan_01,基础版,9900,active
+plan_02,成长版,29900,active
+plan_03,专业版,89900,active
+plan_04,企业版,199900,active

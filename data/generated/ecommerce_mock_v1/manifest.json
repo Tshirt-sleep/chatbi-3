@@ -1,0 +1,57 @@
+{
+  "dataset_id": "ecommerce_mock_v1",
+  "version": "1.0.0",
+  "seed": "20260801",
+  "as_of_date": "2026-08-01",
+  "timezone": "Asia/Shanghai",
+  "date_window": {
+    "start_inclusive": "2025-08-01",
+    "end_exclusive": "2026-08-01"
+  },
+  "hash_algorithm": "SHA-256 over UTF-8 pipe-joined values; first 8 bytes unsigned big-endian",
+  "row_counts": {
+    "categories": 30,
+    "channels": 5,
+    "customers": 8000,
+    "products": 500,
+    "orders": 20000,
+    "order_items": 51698,
+    "refunds": 0
+  },
+  "valid_order_statuses": [
+    "paid",
+    "completed"
+  ],
+  "valid_orders_per_date_min": 28,
+  "valid_orders_per_date_max": 73,
+  "files": {
+    "categories.csv": {
+      "rows": 30,
+      "sha256": "01edc164866a3e3b8245eb8eeaf0e7221c04967d2f80f381abe8bfe608cb159e"
+    },
+    "channels.csv": {
+      "rows": 5,
+      "sha256": "8bf1f5f01ca3fc0bc7d846125fb3d7b8abcf21720d695a29680df2457fc545e8"
+    },
+    "customers.csv": {
+      "rows": 8000,
+      "sha256": "b7eab7c0aa26924bce5dc824c158fc0eac7d532bba0ea7c3f7e54c40a2b68a6b"
+    },
+    "products.csv": {
+      "rows": 500,
+      "sha256": "bb1cd262f1f2bfc0d0f660effe969551b012294d95827a03b6f00df862c3c6b1"
+    },
+    "orders.csv": {
+      "rows": 20000,
+      "sha256": "ffd8231381683ed2fb2e3a7a98195f96689101fb6c54aa66d0b3e4987bea0bd7"
+    },
+    "order_items.csv": {
+      "rows": 51698,
+      "sha256": "7eb286180a4f54920cbacaac24f788a7a92183aaec736008b135eb40212dbc9b"
+    },
+    "refunds.csv": {
+      "rows": 0,
+      "sha256": "a52464667785a87eb9bfa0dc77a45e5c70855361982fb8d0962d4fca70b8ea66"
+    }
+  }
+}

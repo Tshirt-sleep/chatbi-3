@@ -1,0 +1,6 @@
+channel_id,channel_code,channel_name
+chn_01,web,自营网页
+chn_02,app,自营App
+chn_03,mini_program,微信小程序
+chn_04,marketplace_a,虚构商城A
+chn_05,marketplace_b,虚构商城B

@@ -1,0 +1,9 @@
+{
+  "name": "chatbi-workspace",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "node scripts/run_dev.mjs",
+    "setup:python": "python -m venv .venv"
+  }
+}

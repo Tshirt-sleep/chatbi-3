@@ -1,0 +1,3 @@
+order_item_id,order_id,product_id,quantity,unit_price,line_discount,line_amount_after_discount
+fx_item_001,fx_ord_001,prd_000001,1,100.00,0.00,100.00
+fx_item_002,fx_ord_002,prd_000002,1,200.00,0.00,200.00

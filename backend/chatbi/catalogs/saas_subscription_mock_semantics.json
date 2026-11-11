@@ -1,0 +1,27 @@
+{
+  "schema_version": "1",
+  "catalog_id": "saas_subscription_mock_semantics",
+  "version": "1.0.0",
+  "status": "active",
+  "dataset_id": "saas_subscription_mock_v1",
+  "timezone": "Asia/Shanghai",
+  "change_note": "首版 SaaS 合成主题；明确固定快照 MRR 与订阅开始日新增订阅口径",
+  "metrics": [
+    {"id": "active_subscriptions", "label": "活跃订阅数", "definition": "参考日快照中 started_at 不晚于参考时点且未取消的去重订阅数。", "unit": "subscription", "aliases": ["活跃订阅", "当前订阅数"], "allowed_dimension_ids": ["plan"], "implementation_id": "active_subscriptions", "status": "active"},
+    {"id": "mrr", "label": "月度经常性收入（MRR）", "definition": "参考日活跃订阅的标准月付价之和；不等同会计收入或现金回款。", "unit": "CNY/month", "aliases": ["MRR", "月度经常性收入", "月经常性收入"], "allowed_dimension_ids": ["plan"], "implementation_id": "mrr", "status": "active"},
+    {"id": "new_subscriptions", "label": "新增订阅数", "definition": "started_at 落入所选半开自然日范围内的去重订阅数。", "unit": "subscription", "aliases": ["新增订阅", "新订阅数"], "allowed_dimension_ids": ["subscription_date"], "implementation_id": "new_subscriptions", "status": "active"}
+  ],
+  "dimensions": [
+    {"id": "plan", "label": "套餐", "definition": "订阅的固定套餐；首版无变更历史。", "aliases": ["套餐", "计划"], "allowed_metric_ids": ["active_subscriptions", "mrr"], "field_refs": ["saas_subscriptions.plan_id", "saas_plans.plan_name"], "implementation_id": "plan", "status": "active"},
+    {"id": "subscription_date", "label": "订阅开始日期", "definition": "按 saas_subscriptions.started_at 转为 Asia/Shanghai 自然日。", "aliases": ["日期", "每天", "按日"], "allowed_metric_ids": ["new_subscriptions"], "field_refs": ["saas_subscriptions.started_at"], "implementation_id": "subscription_date", "status": "active"}
+  ],
+  "terms": [
+    {"id": "revenue_ambiguous", "text": "收入", "resolution": "ambiguous", "target_id": null, "candidate_ids": ["mrr"], "note": "收入可能表示会计收入或回款；请明确询问 MRR。"},
+    {"id": "churn_unsupported", "text": "流失率", "resolution": "unsupported", "target_id": null, "candidate_ids": [], "note": "首版没有定义流失率口径。"},
+    {"id": "renewal_unsupported", "text": "续费率", "resolution": "unsupported", "target_id": null, "candidate_ids": [], "note": "首版没有续费事件或续费率口径。"},
+    {"id": "region_dimension_unsupported", "text": "地区", "resolution": "unsupported", "target_id": null, "candidate_ids": [], "note": "首版只支持按套餐或订阅开始日期分组，不支持按地区分组。"},
+    {"id": "channel_dimension_unsupported", "text": "渠道", "resolution": "unsupported", "target_id": null, "candidate_ids": [], "note": "首版只支持按套餐或订阅开始日期分组，不支持按渠道分组。"},
+    {"id": "account_dimension_unsupported", "text": "客户", "resolution": "unsupported", "target_id": null, "candidate_ids": [], "note": "首版不支持按客户/账户查询或分组。"}
+  ],
+  "supported_queries": ["active_snapshot", "mrr_snapshot", "new_subscriptions_period", "new_subscriptions_trend", "active_subscriptions_by_plan", "mrr_by_plan"]
+}

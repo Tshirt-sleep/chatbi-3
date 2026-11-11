@@ -1,0 +1,39 @@
+{
+  "dataset_id": "saas_subscription_mock_v1",
+  "version": "1.0.0",
+  "seed": "20260801-saas-v1",
+  "as_of_date": "2026-08-01",
+  "timezone": "Asia/Shanghai",
+  "date_window": {
+    "start_inclusive": "2025-08-01",
+    "end_exclusive": "2026-08-01"
+  },
+  "valid_subscription_statuses": [
+    "active",
+    "canceled"
+  ],
+  "row_counts": {
+    "accounts": 2400,
+    "plans": 4,
+    "subscriptions": 6000,
+    "acquisition_channels": 4
+  },
+  "files": {
+    "accounts.csv": {
+      "rows": 2400,
+      "sha256": "7b2cb6d57b3b256bddbcc60d5324909f19fc8bef7a36b6eb53555c788e3f9a3a"
+    },
+    "plans.csv": {
+      "rows": 4,
+      "sha256": "daa2ad5f00260e9d456dcbf6bf5b71a93f4a00f3b7015591b77aa82c9b639165"
+    },
+    "subscriptions.csv": {
+      "rows": 6000,
+      "sha256": "3eacaaa0330149e36e6be50fde9dc4a123e9ae763c65c0c23229fd898dac1802"
+    },
+    "acquisition_channels.csv": {
+      "rows": 4,
+      "sha256": "342d712488f2d6d4310f535583b1a75a5d59464e4617ffb7a943f729a7752935"
+    }
+  }
+}

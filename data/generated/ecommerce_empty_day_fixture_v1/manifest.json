@@ -1,0 +1,62 @@
+{
+  "dataset_id": "ecommerce_empty_day_fixture_v1",
+  "version": "1.0.0",
+  "fixture_kind": "empty_day_and_trend_zero_fill",
+  "target_date": "2025-08-10",
+  "timezone": "Asia/Shanghai",
+  "expected_valid_order_count_on_target_date": 0,
+  "expected_sales_amount_on_target_date": "0.00",
+  "expected_three_day_trend": {
+    "2025-08-09": {
+      "valid_order_count": 1,
+      "sales_amount": "100.00"
+    },
+    "2025-08-10": {
+      "valid_order_count": 0,
+      "sales_amount": "0.00"
+    },
+    "2025-08-11": {
+      "valid_order_count": 1,
+      "sales_amount": "200.00"
+    }
+  },
+  "row_counts": {
+    "categories": 30,
+    "channels": 5,
+    "customers": 1,
+    "products": 2,
+    "orders": 2,
+    "order_items": 2,
+    "refunds": 0
+  },
+  "files": {
+    "categories.csv": {
+      "rows": 30,
+      "sha256": "01edc164866a3e3b8245eb8eeaf0e7221c04967d2f80f381abe8bfe608cb159e"
+    },
+    "channels.csv": {
+      "rows": 5,
+      "sha256": "8bf1f5f01ca3fc0bc7d846125fb3d7b8abcf21720d695a29680df2457fc545e8"
+    },
+    "customers.csv": {
+      "rows": 1,
+      "sha256": "ac3e54793eb4b383b013d667e16bac13e3fc6332453f12e659f350fccab19b47"
+    },
+    "products.csv": {
+      "rows": 2,
+      "sha256": "c0a98893a55125f1bb6205a0ef3d6bf8c9a8ef5b0f51dfcb0c6ded6b984bbf45"
+    },
+    "orders.csv": {
+      "rows": 2,
+      "sha256": "61ff8bfcc1247df6892d1e1fc58947750bfed57eb309985708be9039ad8e80ea"
+    },
+    "order_items.csv": {
+      "rows": 2,
+      "sha256": "9874db07e61118e15bc0d4df9f9b4a15b996a4fd3bd50622540a4c4a3157dcb1"
+    },
+    "refunds.csv": {
+      "rows": 0,
+      "sha256": "a52464667785a87eb9bfa0dc77a45e5c70855361982fb8d0962d4fca70b8ea66"
+    }
+  }
+}
