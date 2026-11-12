@@ -148,7 +148,12 @@ SQL_TEMPLATES: dict[str, str] = {
           AND o.paid_at >= :previous_start AND o.paid_at < :current_end
         WHERE c.dataset_id = :dataset_id AND c.level = 2
         GROUP BY c.category_id, c.category_name
-        ORDER BY (current_cents - previous_cents) ASC, c.category_id ASC
+        ORDER BY (
+          COALESCE(SUM(CASE WHEN o.paid_at >= :current_start AND o.paid_at < :current_end
+                            THEN oi.line_amount_after_discount_cents ELSE 0 END), 0)
+          - COALESCE(SUM(CASE WHEN o.paid_at >= :previous_start AND o.paid_at < :previous_end
+                              THEN oi.line_amount_after_discount_cents ELSE 0 END), 0)
+        ) ASC, c.category_id ASC
     """,
     "uq09_period_summary": """
         SELECT
@@ -205,10 +210,14 @@ class ChatSession:
 class SessionStore:
     """Process-local sessions are sufficient for a single-process Mock MVP."""
 
+    MAX_SESSIONS = 2_000
+
     def __init__(self) -> None:
         self._sessions: dict[str, ChatSession] = {}
 
     def create(self, dataset_id: str = DATASET_ID, owner_user_id: str = "analyst") -> ChatSession:
+        if len(self._sessions) >= self.MAX_SESSIONS:
+            self._sessions.pop(next(iter(self._sessions)))
         snapshot = ACTIVE_CATALOG if dataset_id == DATASET_ID else ACTIVE_SAAS_CATALOG
         session = ChatSession(
             session_id=str(uuid.uuid4()),

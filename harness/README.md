@@ -30,6 +30,8 @@ SQLite 参考查询只用于验证 Mock 数据、Seeder 与 P3 黄金结果的�
 
 若修改了数据或语义定义，先按 `docs/DEVELOPMENT.md` 生成并导入固定数据，再运行 Harness。失败时根据 JSON 中首个 `passed=false` 的检查 ID 或 `error_category` 定位。
 
+`run_smoke` 可通过 `CHATBI_DATABASE_URL` 对任意受支持的 SQLAlchemy 数据库执行同一只读校验。P9 使用 SQLite 和 Supabase 各生成一份报告，再以 `--compare` 对照；Smoke 会校验 CSV SHA-256 与行数、数据库 manifest 全文/版本/时区、每个数据表记录数、UQ-01、空日夹具和跨数据库外键孤儿行。
+
 ## P7 模型意图评估
 
 首次配置时在项目根目录复制 `.env.example` 为 `.env`，把 `CHATBI_LLM_PROVIDER` 改为 `deepseek`，并把 `DEEPSEEK_API_KEY` 填入你的密钥。`.env` 已被 Git 忽略，后端启动和 Harness 都会读取它。不要把密钥提交到仓库或发在聊天中。以下命令最多调用 7 次 DeepSeek API，结果写入被 Git 忽略的本地目录；可用 `--limit 1` 先跑一个样例：

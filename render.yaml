@@ -3,7 +3,7 @@ services:
     name: chatbi-api
     runtime: python
     region: singapore
-    plan: starter
+    plan: free
     buildCommand: pip install -r backend/requirements.txt
     startCommand: uvicorn backend.chatbi.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/v1/health/live
@@ -17,6 +17,8 @@ services:
         sync: false
       - key: CHATBI_PUBLIC_DEMO
         value: "true"
+      - key: CHATBI_PUBLIC_REQUESTS_PER_MINUTE
+        value: "60"
       - key: CHATBI_DEBUG_ENABLED
         value: "false"
       - key: CHATBI_LLM_PROVIDER

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import deque
 from types import SimpleNamespace
 
 import pytest
@@ -29,6 +30,37 @@ def test_mock_roles_are_fixed_and_scope_limited() -> None:
             CreateSessionRequest(dataset_id="saas_subscription_mock_v1"), request("viewer")
         )
     assert denied.value.status_code == 403
+
+
+def test_public_admin_mock_role_has_no_debug_or_feedback_summary(monkeypatch) -> None:
+    monkeypatch.setenv("CHATBI_PUBLIC_DEMO", "true")
+    monkeypatch.setenv("CHATBI_DEBUG_ENABLED", "true")
+    owner_request = request("admin")
+    session = main.create_session(CreateSessionRequest(), owner_request)
+    result = main.submit_turn(
+        session.session_id,
+        TurnRequest(question="昨天的销售额是多少？"),
+        owner_request,
+    )
+
+    with pytest.raises(HTTPException) as debug_denied:
+        main.get_query_debug(result.debug_ref or "", owner_request)
+    assert debug_denied.value.status_code == 404
+    with pytest.raises(HTTPException) as summary_denied:
+        main.feedback_summary(owner_request)
+    assert summary_denied.value.status_code == 403
+
+
+def test_public_mutations_are_rate_limited(monkeypatch) -> None:
+    monkeypatch.setenv("CHATBI_PUBLIC_DEMO", "true")
+    monkeypatch.setenv("CHATBI_PUBLIC_REQUESTS_PER_MINUTE", "1")
+    monkeypatch.setattr(main, "_PUBLIC_REQUEST_TIMESTAMPS", deque())
+    main.create_session(CreateSessionRequest(), request("analyst"))
+
+    with pytest.raises(HTTPException) as limited:
+        main.create_session(CreateSessionRequest(), request("analyst"))
+    assert limited.value.status_code == 429
+    assert int(limited.value.headers["Retry-After"]) > 0
 
 
 def test_sessions_turns_and_debug_are_owner_bound(monkeypatch) -> None:

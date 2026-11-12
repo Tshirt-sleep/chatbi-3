@@ -1,6 +1,6 @@
 # P9 云数据库迁移与云端 Mock 部署执行计划
 
-- 状态：进行中（P9-1 已确认；P9-2 决策和 P9-3 首批适配已记录，云端验收待供应商资源）
+- 状态：进行中（P9-1 至 P9-5 方案/实现已完成；P9-6 部署与运维验证待执行；P9-7 恢复演练待执行）
 - 日期：2026-11-11
 - 前置：P8 已正式签收；所有数据保持为合成 Mock 数据
 - 部署边界：公开演示仅使用合成 Mock 数据；演示角色切换只影响预设 UI/Mock 能力，服务端不授予真实管理员权限
@@ -28,7 +28,7 @@
 
 ### P9-1 选择目标云平台与运行边界（已确认）
 
-项目方已确认 Supabase 作为数据库方向、网站可以部署在中国大陆以外、独立 Supabase Pro 组织单 Micro 项目时整站基础月费约 $32（约 ¥215）可接受，公开 Mock 演示可以保留角色切换但不能提供真实管理权限，先使用供应商子域名。应用平台选型已记录为 Netlify Free + Render Singapore Starter + Supabase Pro Singapore；项目方已有另一个 Supabase 网站，故创建前需核对该项目所在组织是 Free 还是 Pro，以确认账户总账单。GitHub 私有仓库已创建，两个本地提交已推送。
+项目方已确认 Supabase 作为数据库方向、网站可以部署在中国大陆以外、公开 Mock 演示可以保留角色切换但不能提供真实管理权限，先使用供应商子域名。源码托管使用 GitHub 私有仓库。项目方在 2026-11-12 明确选择：P9-6 公开演示继续使用现有 Supabase Free `chatbi-mock`，不增加 Supabase 费用，并接受低活跃可能暂停且无自动备份；Render API 也改用 Free，接受其空闲休眠、冷启动和使用额度。Supabase 项目为 Oceania (Sydney)、Nano；Render Blueprint 区域为 Singapore，部署后必须实测跨区连接延迟与稳定性。
 
 **产物**：云平台决策记录、架构图、费用估算、私网/公网访问边界、责任人。
 
@@ -94,9 +94,15 @@
 
 ## 5. P9-1 决策与 P9-2 当前方案
 
-项目方确认使用 Supabase，网站可以部署在中国大陆以外；公开访问仅承载 Mock 数据，角色切换不可取得真实管理员权限；使用 Netlify/Render 平台子域名，不购买域名；已接受“独立 Supabase Pro 组织单项目”$32/月基础估算，DeepSeek 调用另计。因用户已有 Supabase 项目，实际账号总账单需先核对旧项目组织计划。网络可达性在部署后从中国大陆实测，不作保证。
+项目方确认使用 Supabase，网站可以部署在中国大陆以外；公开访问仅承载 Mock 数据，角色切换不可取得真实管理员权限；使用 Netlify/Render 平台子域名，不购买域名。项目方在 P9-6 选择继续用现有 Free 组织及专用 `chatbi-mock`，不增加 Supabase 费用，并接受可能自动暂停、无自动备份。该项目区域为 Oceania (Sydney)、规格 Nano。Render Blueprint 运行在 Singapore，跨区数据库连接需部署后观察；大陆网络可达性也需实测，不作保证。
 
-**当前下一步**：项目方核对旧 Supabase 项目的组织套餐，确定新建 Pro 组织或在现有 Pro 组织添加项目；随后创建 Singapore 专用 Mock 项目。真实连接串只在本机或供应商控制台配置，不通过聊天传递。
+**当前进度（2026-11-12）**：Supabase Free 项目 `chatbi-mock`（Sydney/Nano）状态 Healthy。owner Session Pooler 已在本机用于 Alembic 三个迁移及三套 Mock 数据导入；seed 命令报告成功。`chatbi_app` 角色已在 SQL Editor 创建，查询 `pg_roles` 确认 `rolsuper=false`、`rolcreatedb=false`、`rolcreaterole=false`。用户本机以 `chatbi_app` Session Pooler URL 测试连接，`SELECT 1` 返回 1，订单行读取为 20,002；临时 `CHATBI_DATABASE_URL` 随后清除。完整本地 `scripts/check.ps1` 通过（Ruff、mypy、98 pytest、前端 typecheck、3 项结果表检查和生产构建）；P6 HTTP Golden 10/10、54/54。第一次检查发现格式及导入排序，均已修复后复跑通过。
+
+**P9-4 完成记录（2026-11-12）**：Supabase Free/Sydney 空库完成 3 个 Alembic migration 和 3 套 Mock 数据导入；`chatbi_app` 连接/readiness/权限通过。Supabase P6 HTTP Golden 10/10、54/54，且 JSON 与本地基线完全一致，报告见 [`p9-supabase-p6-golden.json`](../data/local/p9-supabase-p6-golden.json)。跨数据库 P5 Smoke 已对 SQLite 和 Supabase 分别运行并执行 `--compare`，结果 `report_comparison=identical`，两端均 24/24；覆盖 manifest 全文/版本/时区、CSV 对应行数、UQ-01 昨日汇总、空日夹具和外键孤儿行（0）。报告分别为 [`p9-sqlite-smoke.json`](../data/local/p9-sqlite-smoke.json) 与 [`p9-supabase-smoke.json`](../data/local/p9-supabase-smoke.json)。
+
+**P9-5 安全与恢复方案（方案/代码交付完成）**：检查结果、公开部署核对项和重建流程见 [P9 安全与恢复方案](P9_SECURITY_AND_RECOVERY.md)。公开模式限制到固定 Mock 数据与角色；debug/OpenAPI/DeepSeek 关闭；应用数据库账号使用 `chatbi_app`；增加每进程每分钟 60 次 mutation 总请求预算和 2,000 个会话上限；公开日志隐藏数据库错误详情。Supabase Free 没有自动备份，项目以 Git 固定 CSV/manifest 和 Alembic 作为可重建备份。项目方已确认恢复时清空旧 `turn_feedback`；该表不纳入备份。定向安全测试 6/6、Ruff 和 mypy 通过。公开 URL 负例检查留 P9-6，恢复演练留 P9-7。
+
+**当前下一步**：P9-6 已确定使用 Sydney Free 数据库和 Singapore Free Render API，项目方已授权 Render/Netlify 获取部署所需的私有仓库权限。服务仍未创建；当前 Windows 浏览器状态读取连续超时，控制台连接需待 UI 可用后继续。届时按手册创建服务、配置 `chatbi_app` URL 与精确 CORS origin，并验证 readiness、P6 Golden、冷启动和跨区延迟；公开 URL、限流、秘密配置和日志核对在部署后完成。P9-7 执行恢复演练。
 
 ## 6. 阶段门
 

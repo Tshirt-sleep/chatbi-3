@@ -69,9 +69,7 @@ def check_database() -> bool:
             if not required_tables.issubset(tables):
                 return False
             migration_revisions = (
-                connection.execute(text("SELECT version_num FROM alembic_version"))
-                .scalars()
-                .all()
+                connection.execute(text("SELECT version_num FROM alembic_version")).scalars().all()
             )
             if not migration_revisions:
                 return False

@@ -5,7 +5,9 @@ import logging
 import os
 import time
 import uuid
+from collections import deque
 from datetime import UTC, datetime
+from threading import Lock
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -37,10 +39,14 @@ from .saas_catalog import DATASET_ID as SAAS_DATASET_ID
 from .saas_query_service import answer_saas_question
 from .semantic_catalog import ACTIVE_CATALOG
 
+PUBLIC_DEMO = os.getenv("CHATBI_PUBLIC_DEMO", "false").lower() == "true"
 app = FastAPI(
     title="ChatBI API",
     version="0.1.0",
     description="Mock-only ChatBI engineering skeleton",
+    docs_url=None if PUBLIC_DEMO else "/docs",
+    redoc_url=None if PUBLIC_DEMO else "/redoc",
+    openapi_url=None if PUBLIC_DEMO else "/openapi.json",
 )
 cors_origins = [
     origin.strip()
@@ -71,6 +77,31 @@ FEEDBACK_CATEGORIES = {
     ),
 }
 TURN_OWNERS: dict[str, tuple[str, str]] = {}
+_PUBLIC_REQUEST_TIMESTAMPS: deque[float] = deque()
+_PUBLIC_REQUEST_LOCK = Lock()
+
+
+def _enforce_public_request_budget() -> None:
+    """Bound anonymous session, query, and feedback writes per process/minute."""
+    if os.getenv("CHATBI_PUBLIC_DEMO", "false").lower() != "true":
+        return
+    try:
+        limit = int(os.getenv("CHATBI_PUBLIC_REQUESTS_PER_MINUTE", "60"))
+    except ValueError:
+        limit = 60
+    limit = max(1, min(limit, 1000))
+    now = time.monotonic()
+    with _PUBLIC_REQUEST_LOCK:
+        while _PUBLIC_REQUEST_TIMESTAMPS and _PUBLIC_REQUEST_TIMESTAMPS[0] <= now - 60:
+            _PUBLIC_REQUEST_TIMESTAMPS.popleft()
+        if len(_PUBLIC_REQUEST_TIMESTAMPS) >= limit:
+            retry_after = max(1, int(60 - (now - _PUBLIC_REQUEST_TIMESTAMPS[0])))
+            raise HTTPException(
+                status_code=429,
+                detail="The public demo is busy. Please retry shortly.",
+                headers={"Retry-After": str(retry_after)},
+            )
+        _PUBLIC_REQUEST_TIMESTAMPS.append(now)
 
 
 def _configured_intent_provider() -> DeepSeekIntentProvider | None:
@@ -139,6 +170,7 @@ def ready() -> dict[str, str] | JSONResponse:
 
 @app.post("/api/v1/sessions", response_model=SessionResponse, tags=["sessions"])
 def create_session(payload: CreateSessionRequest, request: Request) -> SessionResponse:
+    _enforce_public_request_budget()
     identity = resolve_mock_identity(request)
     require_dataset_scope(identity, payload.dataset_id)
     snapshot = ACTIVE_CATALOG if payload.dataset_id == DATASET_ID else ACTIVE_SAAS_CATALOG
@@ -159,6 +191,7 @@ def create_session(payload: CreateSessionRequest, request: Request) -> SessionRe
     tags=["sessions"],
 )
 def submit_turn(session_id: str, payload: TurnRequest, request: Request) -> TurnResponse:
+    _enforce_public_request_budget()
     identity = resolve_mock_identity(request)
     session = sessions.get(session_id)
     if session is None:
@@ -205,16 +238,18 @@ def submit_turn(session_id: str, payload: TurnRequest, request: Request) -> Turn
             TURN_OWNERS.pop(next(iter(TURN_OWNERS)))
         return result
     except SQLAlchemyError as error:
-        logger.error(
-            json.dumps(
-                {
-                    "event": "query_execution_failed",
-                    "request_id": request.state.request_id,
-                    "error_type": type(error).__name__,
-                },
-                sort_keys=True,
-            )
-        )
+        original_error = getattr(error, "orig", error)
+        sqlstate = getattr(original_error, "sqlstate", None)
+        diagnostic = getattr(getattr(original_error, "diag", None), "message_primary", None)
+        error_log = {
+            "event": "query_execution_failed",
+            "request_id": request.state.request_id,
+            "error_type": type(error).__name__,
+            "sqlstate": sqlstate,
+        }
+        if os.getenv("CHATBI_PUBLIC_DEMO", "false").lower() != "true":
+            error_log["database_message"] = diagnostic
+        logger.error(json.dumps(error_log, sort_keys=True))
         return failed_response(request.state.request_id)
 
 
@@ -237,6 +272,7 @@ def get_query_debug(query_id: str, request: Request) -> QueryDebug:
 def submit_feedback(
     session_id: str, turn_id: str, payload: FeedbackRequest, request: Request
 ) -> dict[str, str]:
+    _enforce_public_request_budget()
     identity = resolve_mock_identity(request)
     if not identity.can_submit_feedback:
         raise HTTPException(status_code=403, detail="This Mock identity cannot submit feedback.")

@@ -3,8 +3,8 @@ from __future__ import annotations
 import os
 from logging.config import fileConfig
 
-from backend.chatbi.models import Base
 from backend.chatbi.database import normalize_database_url
+from backend.chatbi.models import Base
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context

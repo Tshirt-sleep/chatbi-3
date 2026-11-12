@@ -184,13 +184,13 @@ P7 按 [P7 实现规格与验收计划](docs/P7_LLM_QUERY_SPEC.md) 执行。托�
 
 ### P9 云数据库迁移与云部署
 
-P9-1 选型及 P9-2 迁移/会话决策已确认；部署代码适配进行中。执行细化、代码落点和 AC-01–09 见 [P9 执行计划](docs/P9_EXECUTION_PLAN.md)。平台费用已确认，但尚未创建云资源或配置秘密值。
+P9-1 至 P9-5 已完成；P9-6 已选择继续使用 Supabase Sydney Free，部署和公网运维验收待执行。Supabase 空库迁移/导入、低权限账号检查、P5 Smoke 对照 24/24 和 P6 HTTP Golden 10/10、54/54 均通过。详见 [P9 执行计划](docs/P9_EXECUTION_PLAN.md)。
 
-- [x] P9-1 选定 Netlify Free + Render Singapore Starter + Supabase Pro Singapore；基础固定月费约 $32/月，DeepSeek 和域名另计。
+- [x] P9-1 选定 Netlify Free + Render Singapore Starter + Supabase 为目标；当前用现有 Free 组织的 `chatbi-mock`（Healthy，Oceania/Sydney，Nano）做迁移验收，Free 低活跃可能暂停，正式公开部署前再确认 Singapore/Pro。
 - [x] P9-2 决定单实例内存会话、Alembic 迁移、空库 Mock 导入策略和重建回滚边界。
-- [ ] P9-3 通过存储适配接口接入云数据库，不改问数业务逻辑。
-- [ ] P9-4 执行迁移并比较记录数、关键聚合结果、主外键/约束和黄金问题答案。
-- [ ] P9-5 配置公开 Mock 模式：服务端禁止管理/SQL debug 能力，真实数据不可接入；完善密钥、TLS、备份/恢复和访问审查。
+- [x] P9-3 增加 PostgreSQL/psycopg 适配、跨库 readiness、部署配置及云 Mock 导入入口；本地检查通过。
+- [x] P9-4 Supabase 三项 Alembic 迁移、三套 Mock 数据导入、SQLite/Supabase P5 Smoke 报告 `identical`（24/24）、P6 HTTP Golden 10/10、54/54；manifest、记录数、UQ-01、空日夹具和外键检查均通过。报告见 [P9 执行计划](docs/P9_EXECUTION_PLAN.md)。
+- [x] P9-5 安全边界代码/恢复手册已交付：禁用公开 debug/OpenAPI/DeepSeek、限定 Mock 角色与数据、app role 最小权限、公开限流 60 次/分钟及会话上限 2,000、隐藏 DB 详情日志；Free 以 Git 固定 Mock 数据重建。项目方确认恢复时清空 `turn_feedback`。定向安全 pytest 6/6、Ruff/mypy 通过。生产 URL 检查留 P9-6，恢复演练留 P9-7。见 [P9 安全与恢复方案](docs/P9_SECURITY_AND_RECOVERY.md)。
 - [ ] P9-6 完成部署自动化、健康检查、监控告警、资源/成本观察和回滚方案。
 - [ ] P9-7 演练云环境重建、数据重置和版本回退。
 
@@ -231,12 +231,12 @@ P9-1 选型及 P9-2 迁移/会话决策已确认；部署代码适配进行中�
 | 项目 | 当前值 |
 |---|---|
 | 当前阶段 | P9 云数据库迁移与云端 Mock 部署 |
-| 当前任务 | P9-3 数据库适配/部署蓝图实现；P10 未启动 |
+| 当前任务 | P9-6 创建 Render Free/Netlify Free 部署并完成公开安全与运维验收；P10 未启动 |
 | 已完成 | P0–P7 既有阶段记录；P8-1 至 P8-6；P6 HTTP Golden 10/10、54/54；pytest 98/98（query API 18/18）；ruff format/check、mypy；前端 typecheck/build；表格 3/3 |
-| 未完成 | P9-3 剩余适配与本地验收、Git 远端/供应商资源准备、P9-4–P9-7 云端迁移及运维演练；P10 未启动 |
-| 阻塞/待确认 | 私有 GitHub 远端 `origin` 已创建，`master` 与本地同步。Supabase 需核对“台词检索网站”所属组织 Free/Pro 计划，决定新建 Pro 组织或在现有 Pro 组织新增 Mock 项目 |
-| 下一步 | 用户告知旧 Supabase 组织套餐；按实际账单创建专用 Mock 项目。境外托管能否从大陆直连需部署后实测，不作保证 |
-| 最近更新 | 2026-11-11 |
+| 未完成 | P9-6 资源开通、公开 URL 安全检查与成本监控；P9-7 恢复演练；P10 未启动 |
+| 阻塞/待确认 | 已授权 Render/Netlify 获取部署所需的 GitHub 私有仓库访问权限，并选择 Render Free、Netlify Free。两服务尚未创建；浏览器 UI 操作接口连续超时，需恢复控制台访问后继续 |
+| 下一步 | 创建 Render Free API 与 Netlify Free 前端；配置 `chatbi_app` Session Pooler URL、精确 CORS origin 和前端 API origin；完成健康检查、P6 Golden、公开端点负例、日志/Network、免费额度与大陆连通性核验。Render Free 空闲 15 分钟会休眠，首次访问冷启动约 1 分钟 |
+| 最近更新 | 2026-11-12 |
 
 ## 6. 决策与问题记录
 
@@ -251,9 +251,11 @@ P9-1 选型及 P9-2 迁移/会话决策已确认；部署代码适配进行中�
 | D-041 | 2026-11-11 | P9 数据库方向 | Supabase 作为首选数据库平台；允许网站不部署在大陆；公开展示只使用 Mock 数据并可保留安全受限的演示角色切换；当前无自有域名 | 项目方补充确认 Supabase 足够、无需大陆部署可接受、无域名且为个人作品集；详情见 P9 云平台比较 | 已确认方向 |
 | D-042 | 2026-11-11 | P9 整站托管成本估算 | Netlify Free + Render Singapore Starter + Supabase Pro Singapore；独立 Pro 组织单 Micro 项目时固定费约 $32/月（约 ¥215），模型调用和自定义域名另计；Render Free 休眠不符合持续在线目标 | 官方价格页面及 2026-11-06 USD/CNY 中间价；见 P9 云平台比较 | 独立组织方案已接受，账户总费用待核旧组织套餐 |
 | D-043 | 2026-11-11 | P9 部署/权限架构 | 单实例内存会话；匿名公开 Mock 演示，角色切换仅限 Mock 范围，公开模式禁用 SQL debug 和反馈汇总；Render 首版默认关闭 DeepSeek | 项目方接受公开角色切换但禁止真实管理/数据访问；公开匿名调用的大模型成本需要先做限额 | 已确定，代码实现中 |
-| D-044 | 2026-11-11 | P9-3 首批本地适配 | 增加 PostgreSQL psycopg 3 URL 支持、跨库 readiness、API/CORS 部署配置、公开模式权限钳制、Netlify/Render 蓝图和空库专用 Mock 导入脚本；数据库 owner 凭据限制在本机 | 代码变更已落地；P9-3 回归检查和 Supabase 云端验收尚未执行 | 实现待检查 |
-| D-045 | 2026-11-11 | P9 Supabase 组织选择与费用 | 用户已有“台词检索网站”项目。若旧项目在 Free 组织，为隔离付费计划建议建立独立 Pro 组织；若已在 Pro 组织，可新建独立 ChatBI 项目并按额外 Micro 计算费估算 | Supabase 每个组织独立计费；Pro 每月 $10 计算额度覆盖一个 Micro，额外项目约 $10/月 | 待用户核对旧组织套餐 |
+| D-044 | 2026-11-11 | P9-3 首批本地适配 | 增加 PostgreSQL psycopg 3 URL 支持、跨库 readiness、API/CORS 部署配置、公开模式权限钳制、Netlify/Render 蓝图和空库专用 Mock 导入脚本；数据库 owner 凭据限制在本机 | P9-3 代码、本地检查及云端适配已验证；P9-4 结果见执行计划 | 已完成 |
+| D-045 | 2026-11-11 | P9 Supabase 组织选择与费用 | 曾提出将 ChatBI 放入独立 Pro 组织以获得持续运行和备份 | 后续项目方决定继续使用现有 Sydney Free 项目，费用方案由 D-048 取代 | 已由 D-048 取代 |
 | D-046 | 2026-11-11 | P9 Git 远端准备 | 创建 GitHub 私有仓库并推送两个本地提交；`master` 跟踪 `origin/master`，工作区干净 | 项目方授权准备 Git 远端并直接操作；提交 `6061002`、`6e76ae7` 已推送 | 已完成 |
+| D-047 | 2026-11-12 | P9-5 反馈恢复策略 | 灾难重建/恢复时允许清空旧 `turn_feedback`；该演示遥测表不进入备份，恢复后从空表开始 | 项目方明确确认；代码与恢复文档已按可丢弃数据记录 | 已确认 |
+| D-048 | 2026-11-12 | P9-6 免费部署目标 | 公开演示继续使用现有 Supabase Sydney Free `chatbi-mock`，不增加 Supabase 费用；并授权 Render/Netlify 获得部署所需的私有仓库访问权限，选择 Render Free 和 Netlify Free。接受 Supabase 低活跃暂停/无自动备份、Render 空闲 15 分钟休眠/冷启动约 1 分钟/512 MB/每 workspace 每月 750 小时额度。Render 在 Singapore，需验证到 Sydney 数据库的跨区连接 | 项目方明确选择并授权；Render 官方限制记录见 P9 部署手册 | 已确认；控制台创建待执行 |
 | D-004 | 2026-11-06 | P1 产品方向 | 接受电商 ChatBI 作为首期演示定位；问题候选池暂不筛选，由 PRD 决定 MVP 与后续迭代取舍；认可答案可核对、口径清楚、问数过程可检查 | 项目方明确确认；P1 结论，后续需求需待明确启动 P2 后再细化 | 已接受 |
 | D-005 | 2026-11-06 | 流程纠正 | P1 完成不等同于授权启动 P2；不得在项目方核实 P1 前编写下一阶段文档 | 根据项目方指出的阶段边界纠正流程 | 已记录 |
 | D-006 | 2026-11-06 | 阶段授权 | 项目方明确同意开始 P2 产品范围与 PRD 编写 | 本轮用户明确授权；P2 完成后仍需单独评审，不自动进入 P3 | 已记录 |

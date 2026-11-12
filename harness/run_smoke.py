@@ -12,7 +12,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 from sqlalchemy.exc import SQLAlchemyError
 
 from backend.chatbi.database import make_engine
@@ -29,6 +29,38 @@ DB_TABLE_BY_FILE_STEM = {
     "subscriptions": "saas_subscriptions",
     "acquisition_channels": "saas_acquisition_channels",
 }
+
+
+def foreign_key_violation_count(connection) -> int:  # type: ignore[no-untyped-def]
+    """Count rows violating declared FKs using SQL portable across SQLite/PostgreSQL."""
+    inspector = inspect(connection)
+    quote = connection.dialect.identifier_preparer.quote
+    violations = 0
+    for table_name in inspector.get_table_names():
+        for foreign_key in inspector.get_foreign_keys(table_name):
+            source_columns = foreign_key.get("constrained_columns") or []
+            target_table = foreign_key.get("referred_table")
+            target_columns = foreign_key.get("referred_columns") or []
+            if (
+                not source_columns
+                or not target_table
+                or len(source_columns) != len(target_columns)
+            ):
+                continue
+            source_non_null = " AND ".join(
+                f"src.{quote(column)} IS NOT NULL" for column in source_columns
+            )
+            join_predicates = " AND ".join(
+                f"src.{quote(source)} = ref.{quote(target)}"
+                for source, target in zip(source_columns, target_columns, strict=True)
+            )
+            statement = text(
+                f"SELECT COUNT(*) FROM {quote(table_name)} AS src "
+                f"WHERE {source_non_null} AND NOT EXISTS ("
+                f"SELECT 1 FROM {quote(target_table)} AS ref WHERE {join_predicates})"
+            )
+            violations += int(connection.execute(statement).scalar_one())
+    return violations
 
 
 def verify_generated_files(dataset_id: str) -> dict[str, int]:
@@ -86,13 +118,28 @@ def run_smoke() -> dict[str, Any]:
             for dataset_id in DATASETS:
                 row = connection.execute(
                     text(
-                        "SELECT version FROM dataset_manifests WHERE dataset_id = :dataset_id"
+                        "SELECT version, timezone, manifest_json FROM dataset_manifests "
+                        "WHERE dataset_id = :dataset_id"
                     ),
                     {"dataset_id": dataset_id},
                 ).one_or_none()
                 if row is None:
                     raise ValueError(f"Dataset is not seeded: {dataset_id}")
                 manifest_versions[dataset_id] = str(row.version)
+                expected_manifest = json.loads(
+                    (
+                        ROOT / "data" / "generated" / dataset_id / "manifest.json"
+                    ).read_text(encoding="utf-8")
+                )
+                stored_manifest = json.loads(str(row.manifest_json))
+                checks.append(
+                    {
+                        "id": f"manifest:{dataset_id}:content",
+                        "passed": stored_manifest == expected_manifest
+                        and str(row.version) == str(expected_manifest["version"])
+                        and str(row.timezone) == str(expected_manifest["timezone"]),
+                    }
+                )
                 for table_name, expected_count in generated_counts[dataset_id].items():
                     db_table = DB_TABLE_BY_FILE_STEM.get(table_name, table_name)
                     actual_count = connection.execute(
@@ -188,12 +235,12 @@ def run_smoke() -> dict[str, Any]:
                 }
             )
 
-            violations = connection.exec_driver_sql("PRAGMA foreign_key_check").all()
+            violations = foreign_key_violation_count(connection)
             checks.append(
                 {
-                    "id": "sqlite:foreign_key_check",
-                    "passed": len(violations) == 0,
-                    "violations": len(violations),
+                    "id": "db:foreign_key_check",
+                    "passed": violations == 0,
+                    "violations": violations,
                 }
             )
     finally:
@@ -202,7 +249,7 @@ def run_smoke() -> dict[str, Any]:
     return {
         "suite_id": "p5_dataset_and_seed_smoke_v1",
         "status": "passed" if all(item["passed"] for item in checks) else "failed",
-        "adapter": "sqlite_reference_before_p6_query_api",
+        "adapter": "sqlalchemy_database",
         "golden_question_ids": load_golden_question_ids(),
         "executed_golden_question_ids": ["UQ-01"],
         "deferred_to_query_api": [

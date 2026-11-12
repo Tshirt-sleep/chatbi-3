@@ -12,7 +12,11 @@ from typing import Any
 
 from httpx import ASGITransport, AsyncClient
 
-os.environ.setdefault("CHATBI_DEBUG_ENABLED", "true")
+# The HTTP Golden harness is a local-only evaluation process. It must be able
+# to inspect isolated debug records even when the developer's ignored .env is
+# configured for the public demo. Production configuration is not changed.
+os.environ["CHATBI_PUBLIC_DEMO"] = "false"
+os.environ["CHATBI_DEBUG_ENABLED"] = "true"
 
 from backend.chatbi.main import app
 from backend.chatbi.query_service import CATALOG_ID, CATALOG_VERSION
@@ -166,6 +170,12 @@ async def evaluate_case(
         )
         first_response.raise_for_status()
         result = first_response.json()
+        if result["status"] == "failed":
+            raise RuntimeError(
+                "Golden query failed before debug inspection "
+                f"(case={case['id']}, request_id={result['request_id']}). "
+                "See the query_execution_failed log for SQLSTATE and database_message."
+            )
         first_debug = await _query_debug(client, result)
         if "clarification" in case:
             checks.append(
@@ -189,6 +199,12 @@ async def evaluate_case(
             )
             followup_response.raise_for_status()
             result = followup_response.json()
+            if result["status"] == "failed":
+                raise RuntimeError(
+                    "Clarified Golden query failed before debug inspection "
+                    f"(case={case['id']}, request_id={result['request_id']}). "
+                    "See the query_execution_failed log for SQLSTATE and database_message."
+                )
         debug = await _query_debug(client, result)
         expected_query = case["expected_query_executed"]
         checks.extend(
