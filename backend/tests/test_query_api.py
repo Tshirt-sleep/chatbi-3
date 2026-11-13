@@ -331,11 +331,16 @@ def test_uq10_explains_sales_and_asks_about_income_without_querying() -> None:
     assert "收入" in result["answer_text"]
 
 
-def test_uq07_refund_rate_is_rejected_without_querying() -> None:
+def test_uq07_refund_rate_returns_deduplicated_product_order_rates() -> None:
     result = asyncio.run(_ask("最近 30 天退款率最高的商品有哪些？"))
 
-    assert result["status"] == "unsupported"
-    assert result["debug"]["query_executed"] is False
+    assert result["status"] == "completed"
+    assert result["debug"]["query_executed"] is True
+    assert result["debug"]["template_id"] == "uq07_product_refund_rate"
+    assert result["interpretation"]["metric_ids"] == ["refund_rate"]
+    assert result["interpretation"]["dimension_ids"] == ["product"]
+    assert len(result["visualization"]["data"]) <= 10
+    assert "退款订单率" in result["answer_text"]
 
 
 def test_followup_inherits_only_previous_explicit_metrics_and_time_range() -> None:

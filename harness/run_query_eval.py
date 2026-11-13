@@ -55,6 +55,9 @@ def load_expectations() -> dict[str, Any]:
     uq04_rows = _table_rows(_section(markdown, "UQ-04 最近 30 天商品销售额 Top 10"))[1:]
     uq05_rows = _table_rows(_section(markdown, "UQ-05 最近 30 天叶子类目汇总"))[1:]
     uq06_rows = _table_rows(_section(markdown, "UQ-06 最近 30 天渠道客单价"))[1:]
+    uq07_rows = _table_rows(
+        _section(markdown, "UQ-07 最近 30 天商品退款订单率 Top 10")
+    )[1:]
     uq08_rows = _table_rows(_section(markdown, "UQ-08 本周与上周同期类目销售额"))[1:]
     uq09_section = _section(markdown, "UQ-09 相邻 7 天期间的数值分解")
     uq09_rows = _table_rows(uq09_section)[1:]
@@ -113,6 +116,20 @@ def load_expectations() -> dict[str, Any]:
                     },
                 }
                 for row in uq06_rows
+            ]
+        },
+        "UQ-07": {
+            "rows": [
+                {
+                    "key": row[1],
+                    "label": row[2],
+                    "values": {
+                        "refund_order_count": int(row[3]),
+                        "order_count": int(row[4]),
+                        "refund_rate": row[5],
+                    },
+                }
+                for row in uq07_rows
             ]
         },
         "UQ-08": {

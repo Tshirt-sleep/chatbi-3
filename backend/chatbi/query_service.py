@@ -105,6 +105,25 @@ SQL_TEMPLATES: dict[str, str] = {
         ORDER BY sales_cents DESC, p.product_id ASC
         LIMIT 10
     """,
+    "uq07_product_refund_rate": """
+        SELECT p.product_id, p.product_name,
+               COUNT(DISTINCT CASE WHEN r.refund_id IS NOT NULL THEN o.order_id END) AS refund_order_count,
+               COUNT(DISTINCT o.order_id) AS eligible_order_count,
+               CAST(COUNT(DISTINCT CASE WHEN r.refund_id IS NOT NULL THEN o.order_id END) AS FLOAT)
+                 / NULLIF(COUNT(DISTINCT o.order_id), 0) AS refund_rate
+        FROM products p
+        JOIN order_items oi ON oi.dataset_id = p.dataset_id AND oi.product_id = p.product_id
+        JOIN orders o ON o.dataset_id = oi.dataset_id AND o.order_id = oi.order_id
+          AND o.order_status IN ('paid', 'completed') AND o.paid_at IS NOT NULL
+          AND o.paid_at >= :start_inclusive AND o.paid_at < :end_exclusive
+        LEFT JOIN refunds r ON r.dataset_id = oi.dataset_id
+          AND r.order_item_id = oi.order_item_id AND r.refund_status = 'completed'
+        WHERE p.dataset_id = :dataset_id
+        GROUP BY p.product_id, p.product_name
+        HAVING COUNT(DISTINCT o.order_id) > 0
+        ORDER BY refund_rate DESC, p.product_id ASC
+        LIMIT 10
+    """,
     "uq05_category_summary": """
         SELECT c.category_id, c.category_name,
                COUNT(DISTINCT CASE WHEN o.order_id IS NOT NULL THEN o.order_id END) AS order_count,
@@ -490,6 +509,14 @@ def _classify(normalized: str) -> str | None:
         return "uq08"
     if "channel" in dimension_ids and has_average_order_value:
         return "uq06"
+    if (
+        "product" in dimension_ids
+        and "refund_rate" in metric_ids
+        and any(term in normalized for term in ("最高", "前10", "top10", "排行", "排名"))
+    ):
+        return "uq07"
+    if "refund_rate" in metric_ids:
+        return "unsupported"
     if "category" in dimension_ids and (has_order_count or has_sales_amount):
         return "uq05"
     if (
@@ -830,7 +857,7 @@ def _answer_for_kind(
             query=debug,
         )
 
-    if kind in {"uq04", "uq05", "uq06"}:
+    if kind in {"uq04", "uq05", "uq06", "uq07"}:
         if date_range is None:
             prompt = "请补充要查看的时间范围，例如“最近 30 天”。"
             session_pending = PendingClarification(turn_id, kind, prompt)
@@ -877,6 +904,48 @@ def _answer_for_kind(
                 definitions=[definitions["sales_amount"]],
                 visualization=Visualization(type="bar", data=result_rows),
                 values=result_values,
+                query=debug,
+            )
+        if kind == "uq07":
+            rows, debug = _execute(engine, "uq07_product_refund_rate", params, request_id)
+            result_rows = [
+                ResultRow(
+                    key=str(row["product_id"]),
+                    label=str(row["product_name"]),
+                    values={
+                        "refund_order_count": int(row["refund_order_count"]),
+                        "order_count": int(row["eligible_order_count"]),
+                        "refund_rate": f"{(Decimal(int(row['refund_order_count'])) * 100 / Decimal(int(row['eligible_order_count']))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)}%",
+                    },
+                )
+                for row in rows
+            ]
+            top_rate = result_rows[0].values["refund_rate"] if result_rows else None
+            interpretation = Interpretation(
+                metric_ids=["refund_rate"],
+                dimension_ids=["product"],
+                time_range=date_range,
+                filters=[VALID_ORDER_FILTER, "退款状态为 completed；按商品与订单去重"],
+                sort=["refund_rate desc", "product_id asc"],
+                limit=10,
+            )
+            return _base_response(
+                request_id,
+                turn_id,
+                "completed",
+                "以下商品按退款订单率降序排列。分子为所选支付日期范围内、截至 Mock 快照至少有一笔已完成退款的商品订单数；分母为该商品涉及的有效订单数。部分退款按一单计，多次退款按订单去重。",
+                interpretation,
+                definitions=[definitions["refund_rate"]],
+                visualization=Visualization(type="table", data=result_rows),
+                values=[
+                    _metric(
+                        "refund_rate",
+                        "最高商品退款订单率",
+                        top_rate,
+                        "percent",
+                        definitions["refund_rate"],
+                    )
+                ],
                 query=debug,
             )
         if kind == "uq05":
@@ -1360,7 +1429,7 @@ def answer_question(
                 clarification_prompt=pending.prompt,
             )
         kind = pending.question_kind
-        if kind in {"uq04", "uq05", "uq06"}:
+        if kind in {"uq04", "uq05", "uq06", "uq07"}:
             date_range = _parse_recent_range(normalized)
             if date_range is None:
                 if intent_provider is not None:
@@ -1405,7 +1474,7 @@ def answer_question(
         session.pending = None
     else:
         kind = incoming_kind
-        if kind in {"uq04", "uq05", "uq06"}:
+        if kind in {"uq04", "uq05", "uq06", "uq07"}:
             date_range = _date_range_from_question(normalized)
         if kind == "uq09":
             periods = _parse_two_periods(normalized)
@@ -1486,7 +1555,7 @@ def answer_question(
                     return model_result
         return _answer_for_kind("unsupported", question, request_id, turn_id, query_engine)
 
-    if kind in {"uq04", "uq05", "uq06"} and date_range is None:
+    if kind in {"uq04", "uq05", "uq06", "uq07"} and date_range is None:
         prompt = "请补充要查看的时间范围，例如“最近 30 天”。"
         response = _clarification(request_id, turn_id, kind, prompt)
         session.pending = PendingClarification(turn_id=turn_id, question_kind=kind, prompt=prompt)

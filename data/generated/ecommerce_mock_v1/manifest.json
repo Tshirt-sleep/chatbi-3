@@ -1,6 +1,6 @@
 {
   "dataset_id": "ecommerce_mock_v1",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "seed": "20260801",
   "as_of_date": "2026-08-01",
   "timezone": "Asia/Shanghai",
@@ -16,7 +16,7 @@
     "products": 500,
     "orders": 20000,
     "order_items": 51698,
-    "refunds": 0
+    "refunds": 4674
   },
   "valid_order_statuses": [
     "paid",
@@ -50,8 +50,8 @@
       "sha256": "7eb286180a4f54920cbacaac24f788a7a92183aaec736008b135eb40212dbc9b"
     },
     "refunds.csv": {
-      "rows": 0,
-      "sha256": "a52464667785a87eb9bfa0dc77a45e5c70855361982fb8d0962d4fca70b8ea66"
+      "rows": 4674,
+      "sha256": "05a649da126c5ba1a256f47cba784c8f88014585b5e2e53151618ef8d3db1b8d"
     }
   }
 }

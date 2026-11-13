@@ -26,12 +26,38 @@ def _ready_uq04(**overrides: object) -> IntentDraft:
     return IntentDraft.model_validate(fields)
 
 
+def _ready_uq07(**overrides: object) -> IntentDraft:
+    fields: dict[str, object] = {
+        "status": "ready",
+        "question_kind": "uq07",
+        "metric_ids": ["refund_rate"],
+        "dimension_ids": ["product"],
+        "time_range": {
+            "timezone": "Asia/Shanghai",
+            "start_inclusive": "2026-07-02",
+            "end_exclusive": "2026-08-01",
+        },
+        "filter_ids": ["valid_paid_orders"],
+        "sort": [
+            {"field_id": "refund_rate", "direction": "desc"},
+            {"field_id": "product_id", "direction": "asc"},
+        ],
+        "limit": 10,
+    }
+    fields.update(overrides)
+    return IntentDraft.model_validate(fields)
+
+
 def test_valid_top_ten_intent_passes_semantic_validation() -> None:
     draft = _ready_uq04()
     validated = validate_intent_draft(draft)
 
     assert validated.draft is draft
     assert validated.template_id == "uq04_product_top"
+
+
+def test_valid_refund_rate_intent_passes_semantic_validation() -> None:
+    assert validate_intent_draft(_ready_uq07()).template_id == "uq07_product_refund_rate"
 
 
 def test_valid_category_comparison_can_sort_by_derived_change() -> None:
@@ -63,7 +89,7 @@ def test_valid_category_comparison_can_sort_by_derived_change() -> None:
 @pytest.mark.parametrize(
     ("overrides", "reason"),
     [
-        ({"question_kind": "uq07"}, "query_kind_not_executable"),
+        ({"question_kind": "uq10"}, "query_kind_not_executable"),
         ({"metric_ids": ["refund_rate"]}, "metric_set_not_allowed_for_kind"),
         ({"dimension_ids": ["region"]}, "dimension_set_not_allowed_for_kind"),
         ({"limit": 20}, "top_ten_limit_required"),

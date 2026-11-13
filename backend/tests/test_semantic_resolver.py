@@ -16,8 +16,9 @@ def test_metric_and_dimension_aliases_are_read_from_catalog() -> None:
 def test_ambiguous_and_unsupported_terms_are_directory_driven() -> None:
     assert _matched_catalog_term("请解释营收", "ambiguous").id == "revenue"
     assert _classify("请解释营收") == "ambiguous_term"
-    assert _matched_catalog_term("最近30天退款率", "unsupported").id == "refund_rate_term"
-    assert _classify("最近30天退款率是多少") == "unsupported_term"
+    assert _matched_catalog_term("最近30天退款率", "metric").target_id == "refund_rate"
+    assert _classify("最近30天退款率最高的商品有哪些") == "uq07"
+    assert _classify("最近30天退款率是多少") == "unsupported"
 
 
 def test_inactive_dimension_is_not_silently_ignored() -> None:

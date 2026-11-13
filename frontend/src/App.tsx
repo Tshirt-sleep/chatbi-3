@@ -59,7 +59,7 @@ const API_BASE = (import.meta.env.VITE_CHATBI_API_BASE_URL || "http://127.0.0.1:
   .replace(/\/$/, "");
 const API = `${API_BASE}/api/v1`;
 const PUBLIC_DEMO = import.meta.env.VITE_CHATBI_PUBLIC_DEMO === "true";
-const ECOMMERCE_EXAMPLES = ["昨天的销售额和订单数是多少？", "最近 7 天每天销售额趋势如何？"];
+const ECOMMERCE_EXAMPLES = ["昨天的销售额和订单数是多少？", "最近 7 天每天销售额趋势如何？", "最近 30 天退款率最高的商品有哪些？"];
 const SAAS_EXAMPLES = ["当前有多少活跃订阅？", "当前 MRR 是多少？", "最近 7 天新增订阅数"];
 
 function TrendChart({ rows }: { rows: ResultRow[] }) {
@@ -97,6 +97,7 @@ function TrendChart({ rows }: { rows: ResultRow[] }) {
 
 const COLUMN_LABELS: Record<string, string> = {
   product_id: "商品编号", sales_amount: "销售额", order_count: "订单数",
+  refund_order_count: "退款订单数", refund_rate: "退款订单率",
   average_order_value: "客单价", current_sales: "本期销售额",
   previous_sales: "对比期销售额", change: "变化额",
   order_count_previous: "对比期订单数", order_count_current: "当前期订单数",
@@ -125,6 +126,7 @@ function presentFilters(filters: string[]) {
 
 function formatCell(key: string, value: string | number | null) {
   if (value === null) return "—";
+  if (key === "refund_rate") return String(value);
   if (["sales_amount", "average_order_value", "current_sales", "previous_sales", "change", "sales_amount_delta", "sales_amount_current", "sales_amount_previous", "order_count_contribution", "aov_contribution", "average_order_value_previous", "average_order_value_current", "mrr"].includes(key)) {
     return `¥${Number(value).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
@@ -289,12 +291,14 @@ export default function App() {
   const [pendingClarificationId, setPendingClarificationId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [healthCheckKey, setHealthCheckKey] = useState(0);
   const [feedbackSummary, setFeedbackSummary] = useState<FeedbackSummary | null>(null);
   const [feedbackSummaryError, setFeedbackSummaryError] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
     setHealth("checking");
+    setError(null);
     setSessionId(null);
     fetch(`${API}/health/ready`, { signal: controller.signal })
       .then(async (response) => {
@@ -319,7 +323,7 @@ export default function App() {
         }
       });
     return () => controller.abort();
-  }, [datasetId, mockUserId]);
+  }, [datasetId, mockUserId, healthCheckKey]);
 
   const examples = datasetId === "ecommerce_mock_v1" ? ECOMMERCE_EXAMPLES : SAAS_EXAMPLES;
   const topicLabel = datasetId === "ecommerce_mock_v1" ? "电商经营问数" : "SaaS 订阅经营问数";
@@ -335,13 +339,16 @@ export default function App() {
     }
   }
 
-  async function submitQuestion(value = question) {
+  async function submitQuestion(value = question, retryIndex: number | null = null) {
     const text = value.trim();
     if (!text || !sessionId || busy) return;
-    setQuestion("");
+    const targetIndex = retryIndex ?? messages.length;
+    if (retryIndex === null) setQuestion("");
     setBusy(true);
     setError(null);
-    setMessages((current) => [...current, { question: text }]);
+    setMessages((current) => retryIndex === null
+      ? [...current, { question: text }]
+      : current.map((message, index) => index === targetIndex ? { question: text } : message));
     try {
       const response = await fetch(`${API}/sessions/${sessionId}/turns`, {
         method: "POST",
@@ -354,10 +361,10 @@ export default function App() {
       }
       const result = await response.json() as TurnResponse;
       setPendingClarificationId(result.status === "clarification_required" ? result.clarification_id : null);
-      setMessages((current) => current.map((message, index) => index === current.length - 1 ? { ...message, response: result } : message));
+      setMessages((current) => current.map((message, index) => index === targetIndex ? { ...message, response: result } : message));
     } catch (reason: unknown) {
       const message = reason instanceof Error ? reason.message : "查询失败，请稍后重试。";
-      setMessages((current) => current.map((entry, index) => index === current.length - 1 ? { ...entry, error: message } : entry));
+      setMessages((current) => current.map((entry, index) => index === targetIndex ? { ...entry, error: message } : entry));
     } finally {
       setBusy(false);
     }
@@ -435,19 +442,20 @@ export default function App() {
         </details>}
         <span className="mock-badge">{PUBLIC_DEMO ? "公开演示 · 角色仅模拟权限 · 仅 Mock 数据" : "仅 Mock 数据"}</span>
       </header>
-      <section className="workspace" aria-labelledby="welcome-title">
-        <div className="workspace-heading">
+      <section className={`workspace${messages.length > 0 ? " has-messages" : ""}`} aria-labelledby="welcome-title">
+        <div className={`workspace-heading${messages.length > 0 ? " is-collapsed" : ""}`}>
           <div className="eyebrow">{topicLabel} · 确定性 MVP</div>
           <h1 id="welcome-title">让经营数据，<span>更容易问清楚。</span></h1>
-          <p className="intro">直接提问，查看结果、指标口径和查询条件。未定义的指标会提示澄清。</p>
-          <div className="status-row"><span className={`status-dot ${health}`} /><span>{health === "checking" ? "正在检查 API 与 Mock 数据" : health === "ready" ? "本地数据服务已就绪" : error ?? "服务不可用"}</span></div>
+          <p className="intro">直接提问，查看结果、指标口径和查询条件。暂不支持的问题会明确提示。</p>
+          <div className="status-row"><span className={`status-dot ${health}`} /><span>{health === "checking" ? "正在连接问数服务" : health === "ready" ? "问数服务已就绪" : error ?? "服务不可用"}</span>{health === "unavailable" && <button type="button" className="connection-retry" onClick={() => setHealthCheckKey((current) => current + 1)}>重新连接</button>}</div>
         </div>
+        <div className="data-notice" role="note"><strong>Mock 演示数据</strong><span>快照日 2026-08-01（Asia/Shanghai）；数据日期覆盖 2025-08-01 至 2026-07-31，不代表真实经营结果。</span></div>
         {messages.length === 0 ? (
-          <div className="empty-state"><span className="empty-icon">✳</span><h2>从一个具体问题开始</h2><p>{datasetId === "ecommerce_mock_v1" ? "首批支持昨日汇总和最近 7 天趋势。" : "当前支持活跃订阅快照、MRR 与新增订阅数；周期指标需要明确时间范围。"}</p><div className="example-list">{examples.map((example) => <button type="button" key={example} onClick={() => void submitQuestion(example)} disabled={health !== "ready" || busy}>{example}<span>→</span></button>)}</div></div>
+          <div className="empty-state"><span className="empty-icon">✳</span><h2>从一个具体问题开始</h2><p>{datasetId === "ecommerce_mock_v1" ? "可从销售汇总、近 7 天趋势或近 30 天商品退款订单率开始。" : "当前支持活跃订阅快照、MRR 与新增订阅数；周期指标需要明确时间范围。"}</p><div className="example-list">{examples.map((example) => <button type="button" key={example} onClick={() => void submitQuestion(example)} disabled={health !== "ready" || busy}>{example}<span>→</span></button>)}</div></div>
         ) : (
           <div className="conversation" aria-live="polite">
             <div className="conversation-toolbar"><span>本次对话 · {messages.length} 个问题</span><button type="button" onClick={resetConversation} disabled={busy} title="仅清空当前页面显示，不会删除后台记录">↺ 重新开始</button></div>
-            {messages.map((message, index) => <div className="turn" key={`${index}-${message.question}`}><div className="user-turn"><div className="user-question"><p>{message.question}</p><span className="avatar user-avatar">我</span></div><div className="user-turn-actions"><button className="delete-turn" type="button" onClick={() => removeMessage(index)} disabled={busy} aria-label="删除这条提问" title="删除这条提问"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6m4-6v6M5.5 7l1 13h11l1-13M9 7V4h6v3" /></svg></button></div></div>{message.response ? <div className="assistant-answer"><span className="avatar bot-avatar">C</span><ResultCard response={message.response} mockUserId={mockUserId} sessionId={sessionId ?? ""} /></div> : message.error ? <div className="assistant-answer"><span className="avatar bot-avatar">C</span><p className="request-error">{message.error}</p></div> : <div className="assistant-answer"><span className="avatar bot-avatar">C</span><p className="pending">正在按确定性规则查询<span className="loading-dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></p></div>}</div>)}
+            {messages.map((message, index) => <div className="turn" key={`${index}-${message.question}`}><div className="user-turn"><div className="user-question"><p>{message.question}</p><span className="avatar user-avatar">我</span></div><div className="user-turn-actions"><button className="delete-turn" type="button" onClick={() => removeMessage(index)} disabled={busy} aria-label="删除这条提问" title="删除这条提问"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6m4-6v6M5.5 7l1 13h11l1-13M9 7V4h6v3" /></svg></button></div></div>{message.response ? <div className="assistant-answer"><span className="avatar bot-avatar">C</span><ResultCard response={message.response} mockUserId={mockUserId} sessionId={sessionId ?? ""} /></div> : message.error ? <div className="assistant-answer"><span className="avatar bot-avatar">C</span><div className="request-error"><p>{message.error}</p><small>请检查服务状态或网络后重试，也可以修改问题再提交。</small><button type="button" onClick={() => void submitQuestion(message.question, index)} disabled={busy || health !== "ready"}>重试这条问题</button></div></div> : <div className="assistant-answer"><span className="avatar bot-avatar">C</span><p className="pending">正在按确定性规则查询<span className="loading-dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></p></div>}</div>)}
           </div>
         )}
         <form className="composer" onSubmit={onSubmit}>
@@ -456,7 +464,7 @@ export default function App() {
           <p className="composer-hint">Enter 发送 · Shift + Enter 换行 · 查询完成或报错后可继续提问</p>
         </form>
       </section>
-      <footer>固定 {datasetId === "ecommerce_mock_v1" ? "电商" : "SaaS 订阅"} Mock 数据 · 不代表真实经营结果</footer>
+      <footer>固定 {datasetId === "ecommerce_mock_v1" ? "电商" : "SaaS 订阅"} Mock 数据 · 快照日 2026-08-01 · 不代表真实经营结果</footer>
     </main>
   );
 }

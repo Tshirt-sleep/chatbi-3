@@ -8,9 +8,11 @@
     {"id": "UQ-04", "question": "销售额最高的前 10 个商品是哪些？", "clarification": "最近 30 天", "expected_status": "completed", "expected_query_executed": true, "visualization": "bar"},
     {"id": "UQ-05", "question": "各类目的订单数和销售额分别是多少？", "clarification": "最近 30 天", "expected_status": "completed", "expected_query_executed": true, "visualization": "bar"},
     {"id": "UQ-06", "question": "各渠道的客单价是多少？", "clarification": "最近 30 天", "expected_status": "completed", "expected_query_executed": true, "visualization": "bar"},
-    {"id": "UQ-07", "question": "最近 30 天退款率最高的商品有哪些？", "expected_status": "unsupported", "expected_query_executed": false, "visualization": "none"},
+    {"id": "UQ-07", "question": "最近 30 天退款率最高的商品有哪些？", "expected_status": "completed", "expected_query_executed": true, "visualization": "table"},
     {"id": "UQ-08", "question": "哪些类目本周销售额较上周下降最多？", "expected_status": "completed", "expected_query_executed": true, "visualization": "bar"},
     {"id": "UQ-09", "question": "订单数增加了，销售额为什么没同步增加？", "clarification": "比较 2025-08-28 至 2025-09-03 和之前一周", "expected_status": "completed", "expected_query_executed": true, "visualization": "table"},
     {"id": "UQ-10", "question": "“收入”和“销售额”在这里分别指什么？", "expected_status": "unknown_term", "expected_query_executed": false, "visualization": "none"}
   ]
 }
+
+\n

@@ -37,6 +37,11 @@ SUPPORTED_CAPABILITIES = MappingProxyType(
             frozenset({"channel"}),
             "uq06_channel_aov",
         ),
+        "uq07": QueryCapability(
+            frozenset({"refund_rate"}),
+            frozenset({"product"}),
+            "uq07_product_refund_rate",
+        ),
         "uq08": QueryCapability(
             frozenset({"sales_amount"}),
             frozenset({"category"}),
@@ -63,7 +68,9 @@ QUERY_TEMPLATE_BY_KIND = MappingProxyType(
 COMPARISON_KINDS = frozenset({"uq03", "uq08", "uq09"})
 ALLOWED_FILTERS = frozenset({"valid_paid_orders", "positive_sales"})
 
-SUPPORTED_METRIC_IMPLEMENTATIONS = frozenset({"sales_amount", "order_count", "average_order_value"})
+SUPPORTED_METRIC_IMPLEMENTATIONS = frozenset(
+    {"sales_amount", "order_count", "average_order_value", "refund_rate"}
+)
 SUPPORTED_DIMENSION_IMPLEMENTATIONS = frozenset({"order_date", "product", "category", "channel"})
 SUPPORTED_FIELD_REFS = frozenset(
     {
@@ -71,6 +78,7 @@ SUPPORTED_FIELD_REFS = frozenset(
         "orders.order_id",
         "orders.channel_id",
         "order_items.order_id",
+        "order_items.order_item_id",
         "order_items.product_id",
         "order_items.line_amount_after_discount_cents",
         "products.product_id",
@@ -79,5 +87,8 @@ SUPPORTED_FIELD_REFS = frozenset(
         "categories.category_id",
         "channels.channel_id",
         "customers.region_code",
+        "refunds.order_item_id",
+        "refunds.refund_status",
+        "refunds.completed_at",
     }
 )

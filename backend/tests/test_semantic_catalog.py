@@ -39,7 +39,7 @@ def _write_case(tmp_path: Path, catalog: dict[str, Any]) -> Path:
 
 def test_active_catalog_is_loaded_once_as_an_immutable_snapshot() -> None:
     assert ACTIVE_CATALOG.catalog.catalog_id == "ecommerce_mock_semantics"
-    assert ACTIVE_CATALOG.catalog.version == "0.1.4"
+    assert ACTIVE_CATALOG.catalog.version == "1.0.0"
     assert ACTIVE_CATALOG.dataset_start_date.isoformat() == "2025-08-01"
     assert ACTIVE_CATALOG.dataset_end_exclusive.isoformat() == "2026-08-01"
     assert isinstance(ACTIVE_CATALOG.catalog.metrics, tuple)

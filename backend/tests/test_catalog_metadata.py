@@ -10,7 +10,7 @@ from backend.chatbi.trace import trace_record
 
 
 def test_dataset_manifest_version_is_captured_in_snapshot_and_evidence() -> None:
-    assert ACTIVE_CATALOG.dataset_version == "1.0.0"
+    assert ACTIVE_CATALOG.dataset_version == "1.1.0"
 
     evidence = _evidence(["测试指标口径"])
     assert evidence.dataset_id == ACTIVE_CATALOG.catalog.dataset_id

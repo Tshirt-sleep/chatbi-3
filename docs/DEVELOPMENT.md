@@ -78,7 +78,7 @@ npm run dev
 
 ## P6 MVP 能力边界
 
-- 首版采用确定性规则和受控 SQL 模板，不调用大模型；UQ-01–06、UQ-08–10 纳入，UQ-07 退款率明确拒答。
+- 首版采用确定性规则和受控 SQL 模板，不调用大模型；UQ-01–10 均走受控查询，其中 UQ-07 是商品退款订单率。
 - 缺少时间或比较周期时先澄清；UQ-04/05/06/09 在澄清回答前不执行查询。首版有限追问只继承明确指标与时间范围并允许单维调整。
 - 普通答案展示结果、指标口径、时间范围、筛选条件和 Mock 数据证据；SQL/参数位于本地验收调试视图。
 - 会话状态暂存于 API 进程内存，重启后清空；当前是单机本地演示，不代表云端多实例部署能力。
@@ -96,3 +96,5 @@ P7 模型方式和服务商已确认使用 DeepSeek 托管 API。项目方确认
 P8-1 差距审查确认 P6 的有限澄清已覆盖 FR-010。P8-3 的 T1–T6 均已完成，SC-AC-01–11 阶段门通过。P8-2 排序/CSV、P8-4 SaaS 第二主题、P8-5 本地 Mock 权限和 P8-6 回答反馈/聚合均已实现并正式签收。最终验收：P6 HTTP Golden 10/10、54/54；pytest 98/98（query API 18/18）；ruff、mypy、前端 typecheck、表格 3/3 和生产 build 通过。P9/P10 尚未启动，P9 需项目方单独确认并启动。完整记录见 [P8 剩余迭代计划](../docs/P8_REMAINING_SCOPE.md) 和 [最终检查摘要](../data/local/p8-final-check-report.json)。
 
 P9-1 云平台/成本与 P9-2 单实例会话、迁移策略已确认。方案为 Netlify Free + Render Singapore Starter + Supabase Pro Singapore，基础固定费约 $32/月（约 ¥215），DeepSeek API 费用另计；先用平台子域名。P9-3 正在适配 PostgreSQL URL、readiness 检查、公开演示权限和部署配置。公开匿名模式默认关闭 DeepSeek，以免未限额的公开请求造成模型费用。还需配置 Git 远端和由用户在供应商控制台创建专用 Mock 资源；大陆网络可达性待实测且不作保证。详见 [P9 执行计划](../docs/P9_EXECUTION_PLAN.md)、[架构决策](../docs/P9_ARCHITECTURE_DECISION.md) 和[部署操作手册](../docs/P9_DEPLOYMENT_RUNBOOK.md)。P10 尚未启动。
+
+\n
