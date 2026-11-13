@@ -1,6 +1,6 @@
 # P9 云数据库迁移与云端 Mock 部署执行计划
 
-- 状态：进行中（P9-1 至 P9-5 方案/实现已完成；P9-6 部署与运维验证待执行；P9-7 恢复演练待执行）
+- 状态：P9 验收项完成，准备进入 P10（P9-6 邮件故障告警已配置；P9-7 云端重建、Golden 对照和服务回滚已通过）
 - 日期：2026-11-11
 - 前置：P8 已正式签收；所有数据保持为合成 Mock 数据
 - 部署边界：公开演示仅使用合成 Mock 数据；演示角色切换只影响预设 UI/Mock 能力，服务端不授予真实管理员权限
@@ -96,13 +96,29 @@
 
 项目方确认使用 Supabase，网站可以部署在中国大陆以外；公开访问仅承载 Mock 数据，角色切换不可取得真实管理员权限；使用 Netlify/Render 平台子域名，不购买域名。项目方在 P9-6 选择继续用现有 Free 组织及专用 `chatbi-mock`，不增加 Supabase 费用，并接受可能自动暂停、无自动备份。该项目区域为 Oceania (Sydney)、规格 Nano。Render Blueprint 运行在 Singapore，跨区数据库连接需部署后观察；大陆网络可达性也需实测，不作保证。
 
-**当前进度（2026-11-12）**：Supabase Free 项目 `chatbi-mock`（Sydney/Nano）状态 Healthy。owner Session Pooler 已在本机用于 Alembic 三个迁移及三套 Mock 数据导入；seed 命令报告成功。`chatbi_app` 角色已在 SQL Editor 创建，查询 `pg_roles` 确认 `rolsuper=false`、`rolcreatedb=false`、`rolcreaterole=false`。用户本机以 `chatbi_app` Session Pooler URL 测试连接，`SELECT 1` 返回 1，订单行读取为 20,002；临时 `CHATBI_DATABASE_URL` 随后清除。完整本地 `scripts/check.ps1` 通过（Ruff、mypy、98 pytest、前端 typecheck、3 项结果表检查和生产构建）；P6 HTTP Golden 10/10、54/54。第一次检查发现格式及导入排序，均已修复后复跑通过。
+**当前进度（2026-11-13）**：Supabase Free 项目 `chatbi-mock`（Sydney/Nano）状态 Healthy。owner Session Pooler 已在本机用于 Alembic 三个迁移及三套 Mock 数据导入；seed 命令报告成功。`chatbi_app` 角色已在 SQL Editor 创建，查询 `pg_roles` 确认 `rolsuper=false`、`rolcreatedb=false`、`rolcreaterole=false`。用户本机以 `chatbi_app` Session Pooler URL 测试连接，`SELECT 1` 返回 1，订单行读取为 20,002；临时 `CHATBI_DATABASE_URL` 随后清除。完整本地 `scripts/check.ps1` 通过；云端 P5 Smoke 两库对照 identical 24/24，Supabase P6 HTTP Golden 10/10、54/54。
 
 **P9-4 完成记录（2026-11-12）**：Supabase Free/Sydney 空库完成 3 个 Alembic migration 和 3 套 Mock 数据导入；`chatbi_app` 连接/readiness/权限通过。Supabase P6 HTTP Golden 10/10、54/54，且 JSON 与本地基线完全一致，报告见 [`p9-supabase-p6-golden.json`](../data/local/p9-supabase-p6-golden.json)。跨数据库 P5 Smoke 已对 SQLite 和 Supabase 分别运行并执行 `--compare`，结果 `report_comparison=identical`，两端均 24/24；覆盖 manifest 全文/版本/时区、CSV 对应行数、UQ-01 昨日汇总、空日夹具和外键孤儿行（0）。报告分别为 [`p9-sqlite-smoke.json`](../data/local/p9-sqlite-smoke.json) 与 [`p9-supabase-smoke.json`](../data/local/p9-supabase-smoke.json)。
 
 **P9-5 安全与恢复方案（方案/代码交付完成）**：检查结果、公开部署核对项和重建流程见 [P9 安全与恢复方案](P9_SECURITY_AND_RECOVERY.md)。公开模式限制到固定 Mock 数据与角色；debug/OpenAPI/DeepSeek 关闭；应用数据库账号使用 `chatbi_app`；增加每进程每分钟 60 次 mutation 总请求预算和 2,000 个会话上限；公开日志隐藏数据库错误详情。Supabase Free 没有自动备份，项目以 Git 固定 CSV/manifest 和 Alembic 作为可重建备份。项目方已确认恢复时清空旧 `turn_feedback`；该表不纳入备份。定向安全测试 6/6、Ruff 和 mypy 通过。公开 URL 负例检查留 P9-6，恢复演练留 P9-7。
 
-**当前下一步**：P9-6 已确定使用 Sydney Free 数据库和 Singapore Free Render API，项目方已授权 Render/Netlify 获取部署所需的私有仓库权限。服务仍未创建；当前 Windows 浏览器状态读取连续超时，控制台连接需待 UI 可用后继续。届时按手册创建服务、配置 `chatbi_app` URL 与精确 CORS origin，并验证 readiness、P6 Golden、冷启动和跨区延迟；公开 URL、限流、秘密配置和日志核对在部署后完成。P9-7 执行恢复演练。
+**P9-6 部署记录（2026-11-13）**：Render Free API 已部署，地址为 `https://chatbi-api-avjp.onrender.com`。用户打开 `/api/v1/health/ready` 并提供截图，响应为 `{"status":"ready","dependency":"database_and_mock_data"}`。Netlify Free 站点 `https://for-chatbi.netlify.app/` 已 Published；控制台截图显示 `master@2acfde3`。用户提供的线上页面截图显示电商主题成功查询昨日销售额 `¥257,984.80` 和订单数 `41`，并展示解析条件与 Mock 数据集版本。这证明公开前后端至少一条真实查询链路可用。此前 `Failed to fetch` 已消失，说明当前 API origin/CORS 配置已达到基本可用状态。此证据由项目方截图提供，尚未独立留存完整的云端 P6 Golden 报告。
+
+**P9-6 安全检查记录（2026-11-13）**：项目方提供浏览器结果：`/docs`、`/redoc`、`/openapi.json` 与 SQL debug 路由均返回 `{"detail":"Not Found"}`；反馈汇总无 Mock 身份返回 401，带 `X-Mock-User: admin` 返回 403。Render 环境截图显示 `CHATBI_PUBLIC_DEMO=true`、`CHATBI_DEBUG_ENABLED=false`、`CHATBI_LLM_PROVIDER=disabled`，`CHATBI_CORS_ORIGINS` 与公开 Netlify origin 一致；数据库账号为 `chatbi_app`。该截图曾意外包含数据库凭据；项目方随后通过隐藏输入脚本轮换 `chatbi_app` 密码并更新 Render secret。轮换后 `/api/v1/health/ready` 返回 `{"status":"ready","dependency":"database_and_mock_data"}`，证明部署服务已用新凭据恢复数据库连接。不得将连接串或密码复制到本记录。
+
+**P9-6 运维验收记录（2026-11-13）**：凭据轮换及 readiness 复核已完成。项目方提供的 Render Application Logs 截图显示 Uvicorn 正常启动；`/docs`、`/redoc`、`/openapi.json` 返回 404，未授权 debug 返回 401，feedback summary 返回 403，readiness GET 返回 200。可见日志只有访问路径、HTTP 状态及启动信息，没有凭据、问题正文或 SQL；抽查范围仅为截图所示时间窗口。Netlify Network 截图显示 turns 为 200，响应仅含问数结果、定义、状态和 request/turn ID；分享证据时应遮挡会话 ID。平台额度/用量已记录。项目方选择跳过冷启动与跨区延迟实测，并接受 Render Free 休眠及跨区时延的不确定性。随后项目方提供 Render Account Settings 截图确认账户邮箱已设置，Workspace → Notifications 截图显示目的地为 Email、Default Service Notifications 为 Only failure notifications；由当前账户所有者接收并查看故障通知。P9-4 云端 HTTP Golden 为 10/10、54/54，SQLite/Supabase P5 Smoke 为 24/24 identical；不将本地 ASGI harness 误作公网完整 Golden。
+
+**P9-6 平台用量与费用快照（2026-11-13，项目方控制台读数）**：Render Hobby Free：本月实例 `0.53/750 小时`、带宽 `0 MB/5 GB`、流水线 `2/500 分钟`、服务 `1/25`；当前累计与预计费用均 `$0.00`，无历史发票、未绑定付款方式。Supabase Free：Spend Cap 开启，余额 `$0.00`，无发票、未绑定付款方式；项目 Usage 截图显示 Database Size `0.042 GB`，详情页显示当前最大数据库大小 `39.6 MB / 0.5 GB`（约 7.9%）；Log Ingestion `0 GB`、Log Query `0.006 GB`、Egress `0 GB`、Cached Egress `0 GB`、Storage `0 GB`、MAU/第三方 MAU/Realtime/Edge Function/Image Transformations 均为 0。项目概览 CPU 3%、磁盘 15%、内存 51%、连接数 8/60 属于运行指标，不代表账单金额。Netlify Free：本周期剩余 `284.8/300 credits`、已用 `15.2 credits`；生产部署 1 次/15 credits、Web 请求 390 次/约 0.1 credits、计算少于 1 credit、带宽约 0.1 credit；未保存付款方式。读数以截图时控制台为准，额度和用量会随周期变化。
+
+**P9 阶段门结论**：部署、安全负例、数据库重建、P5/P6 Golden、服务切换/回滚、资源/成本快照及邮件故障告警均已记录。冷启动/跨区延迟实测按项目方选择跳过；Supabase Free 不提供可依赖的自动备份，本演练验证的是通过 Git 中 Mock 数据和迁移重建，而非托管备份恢复；未承诺生产级 RTO。该限制已明确记录，P9 可进入 P10 最终验收。
+
+**P9-7 本地隔离恢复演练（2026-11-13）**：在全新、随机命名的本地 SQLite 库上执行 3 个 Alembic revision、从仓库重建三套 Mock 数据，P5 Smoke 24/24 通过并与 `p9-sqlite-smoke.json` 完全一致；当时未触碰线上 Supabase。随后另在独立 Supabase 恢复项目完成云端重建和服务回滚，详见下方云端记录与[安全与恢复方案](P9_SECURITY_AND_RECOVERY.md)。
+
+**P9-7 云端隔离目标（2026-11-13）**：项目方已创建 Supabase Free 项目 `chatbi-recovery-drill`；截图显示 Healthy、Nano、Seoul、No migrations、No backups、未连接 GitHub。该项目用于恢复演练，源码继续使用现有私有 GitHub 仓库。项目方随后执行 `alembic upgrade head`，确认 PostgreSQL 上三个 revision 成功至 `c21f8d6a4e30`；URL 通过隐藏输入，没有保存。`chatbi_app` 密码也通过本机隐藏输入脚本成功设置，owner seeder 成功导入三套 Mock 数据。下一步用新库 app role 执行只读 Smoke 对照和权限核验；若控制台提示升级或付费则停止。
+
+项目方用新库 app role 运行 P5 Smoke：`report_comparison=identical`，24/24 检查通过；结果与本地 SQLite 基线完全一致。随后运行 P6 HTTP Golden：`report_comparison=identical`，10 case/54 checks 全部通过，与既有 Supabase P6 基线一致。Supabase SQL Editor 只读核对确认 app role 不能超级管理/建库/建角色，业务订单只读，feedback 可读写；anon/authenticated 无订单读取权限。数据库层恢复验收通过；后续已完成 Render 服务级切换与回滚，见下一段。
+
+项目方随后完成 Render 服务级切换和回滚：临时将 Render `CHATBI_DATABASE_URL` 改为 `chatbi-recovery-drill` 的 app-role URL，Render readiness 返回 `ready/database_and_mock_data`，Netlify 实际问数成功，结果为 `¥257,984.80` / 41 单；再恢复原 `chatbi-mock` 连接串并部署，readiness 再次 ready，Netlify 问数仍正常。未更改代码版本、未删除数据库。P9-7 云端恢复及服务回滚演练通过。
 
 ## 6. 阶段门
 

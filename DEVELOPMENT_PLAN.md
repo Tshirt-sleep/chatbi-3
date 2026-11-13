@@ -49,9 +49,9 @@
 | P5 工程骨架与 Harness | 建立可重复运行、检查和评估的工程环境 | 工程骨架、配置/日志、运行说明、自动检查、数据/Seeder Harness | 新环境可按文档启动；每次修改能重复执行基础检查和当前可执行的 P5 数据核验 | 已完成 |
 | P6 MVP 端到端闭环 | 用规则/受控查询先跑通电商问数流程 | 可演示 MVP、查询结果依据、错误/空结果处理 | PRD 核心流程通过；结果可复核且受服务端约束 | 已完成并经截图评审修正 |
 | P7 大模型辅助问数 | 接入模型并通过语义层生成受控查询计划 | 模型适配层、提示模板、消歧/澄清、校验与拒答机制 | 黄金集 7/7；项目方接受准确率、耗时和费用基线；真实数据/公网开放前另过数据留存审查 | Mock 范围通过（2026-11-07） |
-| P8 产品化能力迭代 | 逐步强化多轮、图表、数据源/业务主题配置、用户权限等 | 每轮增量功能、回归结果 | 每轮目标达成，既有能力回归通过 | 进行中 |
-| P9 云数据库迁移与云部署 | 将 Mock 数据存储迁移到云数据库并部署服务 | 云环境、迁移脚本、备份/恢复、部署与回滚手册 | 数据一致性、权限、稳定性、成本与回滚演练通过 | 未开始 |
-| P10 上线验收与后续运营 | 完成最终审核、发布和持续改进准备 | 发布清单、监控/告警、已知问题、版本计划 | 所有上线门槛通过，责任人、回滚和问题处置路径明确 | 未开始 |
+| P8 产品化能力迭代 | 逐步强化多轮、图表、数据源/业务主题配置、用户权限等 | 每轮增量功能、回归结果 | 每轮目标达成，既有能力回归通过 | 完成 |
+| P9 云数据库迁移与云部署 | 将 Mock 数据存储迁移到云数据库并部署服务 | 云环境、迁移脚本、备份/恢复、部署与回滚手册 | 数据一致性、权限、稳定性、成本与回滚演练通过 | 完成（2026-11-13；跳过延迟实测并记录限制） |
+| P10 上线验收与后续运营 | 完成最终审核、发布和持续改进准备 | 发布清单、监控/告警、已知问题、版本计划 | 所有上线门槛通过，责任人、回滚和问题处置路径明确 | 进行中 |
 
 > 说明：路线图全程先规划；详细实施任务按阶段门逐步展开，避免在调研结果未确定前把后续技术细节写死。Mock 数据是最终产品的数据边界，不是临时占位；云迁移迁的是 Mock 数据和应用存储能力。
 
@@ -184,21 +184,21 @@ P7 按 [P7 实现规格与验收计划](docs/P7_LLM_QUERY_SPEC.md) 执行。托�
 
 ### P9 云数据库迁移与云部署
 
-P9-1 至 P9-5 已完成；P9-6 已选择继续使用 Supabase Sydney Free，部署和公网运维验收待执行。Supabase 空库迁移/导入、低权限账号检查、P5 Smoke 对照 24/24 和 P6 HTTP Golden 10/10、54/54 均通过。详见 [P9 执行计划](docs/P9_EXECUTION_PLAN.md)。
+P9 全部子项已完成：P9-7 新建 Supabase 空库重建、P5/P6 Golden 对照及 Render 临时切换/恢复演练通过；P9-6 公网安全负例、资源/成本快照、基础服务链路和 Render Email 故障通知已验收。项目方选择跳过冷启动/跨区延迟实测，并接受相应不确定性。详见 [P9 执行计划](docs/P9_EXECUTION_PLAN.md)。
 
-- [x] P9-1 选定 Netlify Free + Render Singapore Starter + Supabase 为目标；当前用现有 Free 组织的 `chatbi-mock`（Healthy，Oceania/Sydney，Nano）做迁移验收，Free 低活跃可能暂停，正式公开部署前再确认 Singapore/Pro。
+- [x] P9-1 选定 Netlify Free + Render Singapore Free + Supabase Sydney Free 为公开演示目标；接受 Render 闲置休眠及 Supabase 可能暂停/无自动备份。
 - [x] P9-2 决定单实例内存会话、Alembic 迁移、空库 Mock 导入策略和重建回滚边界。
 - [x] P9-3 增加 PostgreSQL/psycopg 适配、跨库 readiness、部署配置及云 Mock 导入入口；本地检查通过。
 - [x] P9-4 Supabase 三项 Alembic 迁移、三套 Mock 数据导入、SQLite/Supabase P5 Smoke 报告 `identical`（24/24）、P6 HTTP Golden 10/10、54/54；manifest、记录数、UQ-01、空日夹具和外键检查均通过。报告见 [P9 执行计划](docs/P9_EXECUTION_PLAN.md)。
 - [x] P9-5 安全边界代码/恢复手册已交付：禁用公开 debug/OpenAPI/DeepSeek、限定 Mock 角色与数据、app role 最小权限、公开限流 60 次/分钟及会话上限 2,000、隐藏 DB 详情日志；Free 以 Git 固定 Mock 数据重建。项目方确认恢复时清空 `turn_feedback`。定向安全 pytest 6/6、Ruff/mypy 通过。生产 URL 检查留 P9-6，恢复演练留 P9-7。见 [P9 安全与恢复方案](docs/P9_SECURITY_AND_RECOVERY.md)。
-- [ ] P9-6 完成部署自动化、健康检查、监控告警、资源/成本观察和回滚方案。
-- [ ] P9-7 演练云环境重建、数据重置和版本回退。
+- [x] P9-6 完成部署、健康检查、安全核验、资源/成本观察、回滚方案和告警通知：Render Workspace 已设置 Email + Only failure notifications，当前账户所有者接收/查看；冷启动/跨区延迟实测按项目方选择跳过并作为已知限制。
+- [x] P9-7 演练云环境重建、数据重置和版本回退；新 Supabase 空库重建、P5 24/24 与 P6 10 case/54 checks identical、Render 服务临时切换及恢复原库后 readiness/线上问数复核均通过。记录见 [P9 安全与恢复方案](docs/P9_SECURITY_AND_RECOVERY.md)。
 
 **阶段门**：云环境仍只含 Mock 数据；迁移前后黄金集结果一致；备份恢复和回滚演练通过；费用、权限和运维责任明确。
 
 ### P10 上线验收与后续运营
 
-- [ ] P10-1 运行完整回归和安全检查，关闭阻塞级缺陷。
+- [x] P10-1 运行完整回归和安全检查，关闭阻塞级缺陷：`scripts/check.ps1` 全通过（Ruff format/lint、mypy、pytest 100/100、前端 typecheck、表格测试 3/3、生产 build）；P6 HTTP Golden 10/10、54/54 与既有基线 `identical`；未发现阻塞级失败。报告存于 Git 忽略的 `data/local/p10-p6-regression.json`。Render Workspace Email + Only failure notifications 已有截图；`chatbi-api` 单服务 override 尚需在 P10-3 最终运行手册检查。
 - [ ] P10-2 进行部署演练和最终验收，留存版本、配置、评估报告与操作证据。
 - [ ] P10-3 确认监控、告警、模型供应商故障降级、数据重置、回滚和问题响应流程。
 - [ ] P10-4 汇总已知限制和后续迭代候选，制定发布后复盘日期。
@@ -230,13 +230,13 @@ P9-1 至 P9-5 已完成；P9-6 已选择继续使用 Supabase Sydney Free，部�
 
 | 项目 | 当前值 |
 |---|---|
-| 当前阶段 | P9 云数据库迁移与云端 Mock 部署 |
-| 当前任务 | P9-6 创建 Render Free/Netlify Free 部署并完成公开安全与运维验收；P10 未启动 |
-| 已完成 | P0–P7 既有阶段记录；P8-1 至 P8-6；P6 HTTP Golden 10/10、54/54；pytest 98/98（query API 18/18）；ruff format/check、mypy；前端 typecheck/build；表格 3/3 |
-| 未完成 | P9-6 资源开通、公开 URL 安全检查与成本监控；P9-7 恢复演练；P10 未启动 |
-| 阻塞/待确认 | 已授权 Render/Netlify 获取部署所需的 GitHub 私有仓库访问权限，并选择 Render Free、Netlify Free。两服务尚未创建；浏览器 UI 操作接口连续超时，需恢复控制台访问后继续 |
-| 下一步 | 创建 Render Free API 与 Netlify Free 前端；配置 `chatbi_app` Session Pooler URL、精确 CORS origin 和前端 API origin；完成健康检查、P6 Golden、公开端点负例、日志/Network、免费额度与大陆连通性核验。Render Free 空闲 15 分钟会休眠，首次访问冷启动约 1 分钟 |
-| 最近更新 | 2026-11-12 |
+| 当前阶段 | P10 上线验收与后续运营 |
+| 当前任务 | P10-2 部署演练与最终验收准备 |
+| 已完成 | P0–P9；P10-1 `scripts/check.ps1`：pytest 100/100、Ruff、mypy、前端 typecheck、表格 3/3、生产 build 全通过；P6 HTTP Golden 10/10、54/54 与既有基线 identical |
+| 未完成 | P10-2 至 P10-4 |
+| 阻塞/待确认 | P9 已完成；线上验收证据由项目方截图确认，冷启动/跨区延迟为已接受的未测限制；Render 服务级通知 override 将在 P10-3 最终核对 |
+| 下一步 | P10-2 核对已部署代码版本、服务配置和部署/回滚证据，完成最终线上验收清单 |
+| 最近更新 | 2026-11-13 |
 
 ## 6. 决策与问题记录
 
@@ -255,7 +255,8 @@ P9-1 至 P9-5 已完成；P9-6 已选择继续使用 Supabase Sydney Free，部�
 | D-045 | 2026-11-11 | P9 Supabase 组织选择与费用 | 曾提出将 ChatBI 放入独立 Pro 组织以获得持续运行和备份 | 后续项目方决定继续使用现有 Sydney Free 项目，费用方案由 D-048 取代 | 已由 D-048 取代 |
 | D-046 | 2026-11-11 | P9 Git 远端准备 | 创建 GitHub 私有仓库并推送两个本地提交；`master` 跟踪 `origin/master`，工作区干净 | 项目方授权准备 Git 远端并直接操作；提交 `6061002`、`6e76ae7` 已推送 | 已完成 |
 | D-047 | 2026-11-12 | P9-5 反馈恢复策略 | 灾难重建/恢复时允许清空旧 `turn_feedback`；该演示遥测表不进入备份，恢复后从空表开始 | 项目方明确确认；代码与恢复文档已按可丢弃数据记录 | 已确认 |
-| D-048 | 2026-11-12 | P9-6 免费部署目标 | 公开演示继续使用现有 Supabase Sydney Free `chatbi-mock`，不增加 Supabase 费用；并授权 Render/Netlify 获得部署所需的私有仓库访问权限，选择 Render Free 和 Netlify Free。接受 Supabase 低活跃暂停/无自动备份、Render 空闲 15 分钟休眠/冷启动约 1 分钟/512 MB/每 workspace 每月 750 小时额度。Render 在 Singapore，需验证到 Sydney 数据库的跨区连接 | 项目方明确选择并授权；Render 官方限制记录见 P9 部署手册 | 已确认；控制台创建待执行 |
+| D-048 | 2026-11-12 | P9-6 免费部署目标 | 公开演示继续使用现有 Supabase Sydney Free `chatbi-mock`，不增加 Supabase 费用；并授权 Render/Netlify 获得部署所需的私有仓库访问权限，选择 Render Free 和 Netlify Free。接受 Supabase 低活跃暂停/无自动备份、Render 空闲 15 分钟休眠/冷启动约 1 分钟/512 MB/每 workspace 每月 750 小时额度。Render 在 Singapore，需验证到 Sydney 数据库的跨区连接 | 项目方明确选择并授权；Render 官方限制记录见 P9 部署手册 | 已确认，部署完成，运维验收进行中 |
+| D-049 | 2026-11-12 | P9-6 app role 密码轮换与连接验收 | `chatbi_app` 密码通过隐藏提示脚本成功轮换；使用新密码的 app role URL 通过跨库 Smoke，24/24、`report_comparison=identical` | 用户运行命令并提供完整报告；不保存数据库 URL 或密码 | 已验证 |
 | D-004 | 2026-11-06 | P1 产品方向 | 接受电商 ChatBI 作为首期演示定位；问题候选池暂不筛选，由 PRD 决定 MVP 与后续迭代取舍；认可答案可核对、口径清楚、问数过程可检查 | 项目方明确确认；P1 结论，后续需求需待明确启动 P2 后再细化 | 已接受 |
 | D-005 | 2026-11-06 | 流程纠正 | P1 完成不等同于授权启动 P2；不得在项目方核实 P1 前编写下一阶段文档 | 根据项目方指出的阶段边界纠正流程 | 已记录 |
 | D-006 | 2026-11-06 | 阶段授权 | 项目方明确同意开始 P2 产品范围与 PRD 编写 | 本轮用户明确授权；P2 完成后仍需单独评审，不自动进入 P3 | 已记录 |

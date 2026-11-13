@@ -1,6 +1,6 @@
 # P9 部署操作手册（草案）
 
-本手册针对公开 Mock 演示。GitHub 私有仓库已创建；Supabase Free/Sydney 验收库已完成迁移、导入和 Golden/Smoke 对照。Render/Netlify 生产演示尚未部署。源码仓库保持私有；公开的是演示网站。
+本手册针对公开 Mock 演示。GitHub 私有仓库已创建；Supabase Free/Sydney 验收库与独立 Seoul 恢复演练库已完成迁移、导入和 Golden/Smoke 对照；Render API 与 Netlify 前端已部署。P9-7 恢复与服务级回滚演练通过；P9 已完成。P10-3 最终核对时仍需确认 `chatbi-api` 没有覆盖 Workspace 默认邮件告警的单服务 override。源码仓库保持私有；公开的是演示网站。
 
 ## 1. Supabase：建立专用 Mock 数据库
 
@@ -16,7 +16,7 @@
    Remove-Item Env:\CHATBI_MIGRATION_DATABASE_URL
    ```
 
-5. 迁移完成后，在 Supabase SQL Editor 运行 [P9 Supabase 应用账号权限脚本](P9_SUPABASE_APP_ROLE.sql) 创建 `chatbi_app` 低权限账号。在本机运行 `.\.venv\Scripts\python.exe scripts\set_app_role_password.py`，按隐藏提示输入 owner Session Pooler URL 和两次新应用密码；脚本通过 psycopg 安全引用密码执行 `ALTER ROLE`，不回显或写入文件。Render 中只配置 app role URL 到 `CHATBI_DATABASE_URL`；owner URL 不进入 Render 环境。若之前曾将密码写进 SQL Editor 查询，部署前用该脚本轮换一次。
+5. 迁移完成后，在 Supabase SQL Editor 运行 [P9 Supabase 应用账号权限脚本](P9_SUPABASE_APP_ROLE.sql) 创建 `chatbi_app` 低权限账号。在本机运行 `.\.venv\Scripts\python.exe scripts\set_app_role_password.py`，按隐藏提示输入 owner Session Pooler URL 和两次新应用密码；原始 `postgresql://` URL 和 SQLAlchemy `postgresql+psycopg://` URL 均可输入。脚本通过 psycopg 安全引用密码执行 `ALTER ROLE`，不回显或写入文件。Render 中只配置 app role URL 到 `CHATBI_DATABASE_URL`；owner URL 不进入 Render 环境。若之前曾将密码写进 SQL Editor 查询，部署前用该脚本轮换一次。
 6. 不要在前端配置数据库连接串、Supabase `service_role` 或数据库密码。
 
 ## 2. Render：部署 API
@@ -75,8 +75,8 @@ finally {
 
 ## 6. 当前尚需完成
 
-- P9-6 数据库目标已确定：使用 Sydney Free `chatbi-mock`，接受可能自动暂停及无自动备份。Render API 按 Blueprint 使用 Singapore Free；同时接受 15 分钟空闲休眠、冷启动约 1 分钟、512 MB 内存和每 workspace 750 小时/月额度。先以 readiness、P6 Golden 和延迟观察验证跨区连接。不要将 owner URL 配入 Render。
-- GitHub 私有仓库和 Supabase Free 验收库已建立；项目方已授权 Render/Netlify 获取部署所需的仓库访问权限，但控制台尚未完成连接和服务创建。当前 Windows 浏览器读取连续超时，需恢复控制台 UI 后继续。
-- 用户在供应商控制台创建/授权服务并配置 secrets；首次部署前轮换 SQL Editor 中曾输入过的 `chatbi_app` 密码。
-- 部署后执行公开 URL、CORS、限流、debug/OpenAPI 禁用、日志与浏览器 Network 核验，并查看实际账单。境外站点从中国大陆的连通性需要实测。
-- P9-7 再执行空环境重建/恢复演练；恢复时旧 `turn_feedback` 按项目方确认清空。
+- **已部署**：Render Free Singapore API `https://chatbi-api-avjp.onrender.com`；Netlify Free 前端 `https://for-chatbi.netlify.app/`。项目方提供的 readiness 响应为 `ready/database_and_mock_data`，线上截图成功返回昨日销售额与订单数。
+- Supabase 继续使用 Sydney Free `chatbi-mock`，接受可能暂停及无自动备份；Render Free 接受空闲休眠、冷启动、512 MB 和 workspace 月额度限制。不要将 owner URL 配入 Render。
+- P9-6 公开 URL 安全负例已由项目方检查；`chatbi_app` 密码已轮换，Render secret 已更新，轮换后 readiness 为 `ready/database_and_mock_data`。项目方提供的日志截图中服务启动、健康检查和预期安全负例状态正常；Network 截图显示 turns 请求 200、响应仅含问数结果和定义，可见范围未发现特权密钥。分享截图时应遮挡会话 ID。2026-11-13 平台快照：Render `$0.00` 预计费用、实例 0.53/750 小时；Supabase Free、Spend Cap 开启、余额 `$0.00`，数据库 39.6 MB/0.5 GB、egress/log ingestion/storage 显示 0、log query 0.006 GB；Netlify Free 已用 15.2/300 credits、剩余 284.8 credits，无付款方式。Render 日志显示进程关闭后约 10 分钟有新进程启动，但不能据此推算请求冷启动耗时；首次请求时延和跨区延迟尚待实测。P9-4 的云端 P6 Golden 与跨库 P5 Smoke 已有报告；线上成功问数作为独立部署链路证据。CORS 与 API origin 已由线上成功问数证明基本生效。
+- **P9-7 已通过**：独立 Supabase Free 恢复演练库完成空库迁移、Mock 重建、P5/P6 Golden 对照；Render 临时切换到恢复库后 readiness 和 Netlify 问数成功，随后恢复原 Sydney 连接并再次验证 readiness 与线上问数正常。恢复时旧 `turn_feedback` 按项目方确认清空；演练库保留供后续核验。
+- **P9-6 已完成**：项目方截图确认 Render Account Settings 邮箱已设置，Workspace → Notifications 的目的地为 Email，默认服务通知为 Only failure notifications；当前账户所有者负责接收/查看故障邮件并检查 Render Events/Logs。服务级通知覆盖状态将在 P10-3 复核。冷启动与跨区延迟实测由项目方选择跳过，作为已接受限制记录。
