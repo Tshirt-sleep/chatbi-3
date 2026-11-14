@@ -254,11 +254,10 @@ class SessionStore:
 
 sessions = SessionStore()
 debug_query_cache: dict[str, QueryDebug] = {}
-query_logger = logging.getLogger("chatbi.query")
-# Uvicorn configures its own loggers, but leaves application loggers at WARNING
-# unless their levels are set explicitly. Keep query diagnostics visible in
-# managed service logs without logging SQL, parameters, or user input.
-query_logger.setLevel(logging.INFO)
+# Route safe query diagnostics through Uvicorn's configured application handler
+# so managed services capture them. Records contain template IDs and row counts,
+# never SQL, parameters, or user input.
+query_logger = logging.getLogger("uvicorn.error")
 
 
 def _format_money(cents: int) -> str:
