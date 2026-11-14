@@ -1,11 +1,11 @@
 {
   "schema_version": "1",
   "catalog_id": "ecommerce_mock_semantics",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "status": "active",
   "dataset_id": "ecommerce_mock_v1",
   "timezone": "Asia/Shanghai",
-  "change_note": "启用按商品与订单去重的退款订单率 UQ-07，并固定退款快照 cohort 口径",
+  "change_note": "按渠道支持销售额与订单数；新增 UQ-11 品类销售额 Top 10；保留 UQ-10 口径澄清并改进完整月对比标签",
   "metrics": [
     {
       "id": "sales_amount",
@@ -305,7 +305,7 @@
     },
     {
       "id": "uq03",
-      "description": "本月与上月销售额比较",
+      "description": "按参考日比较最近完整自然月与前一个完整自然月的销售额；本月结束前也使用最近完整月",
       "requires_explicit_time_range": false,
       "requires_comparison_period": true,
       "metric_ids": [
@@ -343,7 +343,7 @@
     },
     {
       "id": "uq06",
-      "description": "按渠道计算客单价",
+      "description": "按渠道计算客单价；客单价按渠道销售额除以该渠道去重有效订单数计算",
       "requires_explicit_time_range": true,
       "requires_comparison_period": false,
       "metric_ids": [
@@ -392,6 +392,33 @@
         "product"
       ],
       "template_id": "uq07_product_refund_rate"
+    },
+    {
+      "id": "uq11",
+      "description": "按用户给定时间范围将品类按销售额降序取前 10，同额按品类 ID 升序",
+      "requires_explicit_time_range": true,
+      "requires_comparison_period": false,
+      "metric_ids": [
+        "sales_amount"
+      ],
+      "dimension_ids": [
+        "category"
+      ],
+      "template_id": "uq11_category_top"
+    },
+    {
+      "id": "uq12",
+      "description": "按渠道汇总销售额和去重有效订单数",
+      "requires_explicit_time_range": true,
+      "requires_comparison_period": false,
+      "metric_ids": [
+        "sales_amount",
+        "order_count"
+      ],
+      "dimension_ids": [
+        "channel"
+      ],
+      "template_id": "uq06_channel_aov"
     }
   ]
 }

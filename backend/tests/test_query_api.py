@@ -200,6 +200,14 @@ def test_uq03_month_comparison_matches_golden_result() -> None:
     }
 
 
+def test_uq03_recognizes_recent_completed_month_wording_and_labels_months() -> None:
+    result = asyncio.run(_ask("最近一个完整月的销售额比上个月增长多少？"))
+    labels = [item["label"] for item in result["values"]]
+
+    assert result["status"] == "completed"
+    assert labels[:2] == ["2026年7月销售额", "2026年6月销售额"]
+
+
 def test_uq04_requires_time_then_returns_top_ten_golden_result() -> None:
     first, result = asyncio.run(
         _ask_with_clarification("销售额最高的前 10 个商品是哪些？", "最近 30 天")
@@ -285,6 +293,31 @@ def test_uq06_channel_aov_matches_golden_result() -> None:
         "sales_amount": "2365978.00",
         "average_order_value": "7062.62",
     }
+
+
+def test_uq11_category_sales_top_ten_requires_time_and_sorts_by_sales() -> None:
+    first, result = asyncio.run(
+        _ask_with_clarification("销售额最高的品类有哪些？", "最近 30 天")
+    )
+
+    assert first["status"] == "clarification_required"
+    assert first["debug"]["query_executed"] is False
+    assert result["status"] == "completed"
+    assert result["debug"]["template_id"] == "uq11_category_top"
+    rows = result["visualization"]["data"]
+    assert len(rows) == 10
+    assert rows[0]["label"] == "宠物用品"
+    sales = [float(row["values"]["sales_amount"]) for row in rows]
+    assert sales == sorted(sales, reverse=True)
+
+
+def test_uq12_channel_sales_and_order_count() -> None:
+    result = asyncio.run(_ask("最近 30 天各渠道销售额和订单数分别是多少？"))
+
+    assert result["status"] == "completed"
+    assert result["debug"]["template_id"] == "uq06_channel_aov"
+    channels = {row["label"]: row["values"] for row in result["visualization"]["data"]}
+    assert channels["自营网页"] == {"order_count": 335, "sales_amount": "2365978.00"}
 
 
 def test_uq08_weekly_category_comparison_matches_golden_result() -> None:

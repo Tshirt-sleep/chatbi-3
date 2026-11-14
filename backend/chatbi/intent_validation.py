@@ -80,7 +80,7 @@ def _catalog_capability(kind: str):
 def validate_intent_draft(draft: IntentDraft) -> ValidatedIntent:
     """Validate a parsed draft and resolve only to a fixed server query template."""
     if draft.status == "clarification_required":
-        if draft.question_kind not in {"uq04", "uq05", "uq06", "uq09"}:
+        if draft.question_kind not in {"uq04", "uq05", "uq06", "uq09", "uq11", "uq12"}:
             raise IntentValidationError("clarification_kind_not_supported")
         if not draft.clarification_prompt:
             raise IntentValidationError("clarification_prompt_required")
@@ -184,8 +184,8 @@ def validate_intent_draft(draft: IntentDraft) -> ValidatedIntent:
         raise IntentValidationError("sort_field_not_allowed")
     if len({term.field_id for term in draft.sort}) != len(draft.sort):
         raise IntentValidationError("duplicate_sort_field")
-    if kind in {"uq04", "uq07"} and draft.limit != 10:
+    if kind in {"uq04", "uq07", "uq11"} and draft.limit != 10:
         raise IntentValidationError("top_ten_limit_required")
-    if kind not in {"uq04", "uq07"} and draft.limit is not None:
+    if kind not in {"uq04", "uq07", "uq11"} and draft.limit is not None:
         raise IntentValidationError("limit_not_allowed_for_kind")
     return ValidatedIntent(draft=draft, template_id=registered.template_id)

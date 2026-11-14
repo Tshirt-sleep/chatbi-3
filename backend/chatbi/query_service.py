@@ -152,6 +152,22 @@ SQL_TEMPLATES: dict[str, str] = {
         GROUP BY ch.channel_id, ch.channel_name
         ORDER BY ch.channel_id ASC
     """,
+    "uq11_category_top": """
+        SELECT c.category_id, c.category_name,
+               COALESCE(SUM(oi.line_amount_after_discount_cents), 0) AS sales_cents
+        FROM categories c
+        JOIN products p ON p.dataset_id = c.dataset_id
+                       AND p.primary_leaf_category_id = c.category_id
+        JOIN order_items oi ON oi.dataset_id = p.dataset_id AND oi.product_id = p.product_id
+        JOIN orders o ON o.dataset_id = oi.dataset_id AND o.order_id = oi.order_id
+          AND o.order_status IN ('paid', 'completed') AND o.paid_at IS NOT NULL
+          AND o.paid_at >= :start_inclusive AND o.paid_at < :end_exclusive
+        WHERE c.dataset_id = :dataset_id AND c.level = 2
+        GROUP BY c.category_id, c.category_name
+        HAVING SUM(oi.line_amount_after_discount_cents) > 0
+        ORDER BY sales_cents DESC, c.category_id ASC
+        LIMIT 10
+    """,
     "uq08_category_comparison": """
         SELECT c.category_id, c.category_name,
           COALESCE(SUM(CASE WHEN o.paid_at >= :current_start AND o.paid_at < :current_end
@@ -447,6 +463,9 @@ def _clarification(
         "uq04": (["sales_amount"], ["product"]),
         "uq05": (["order_count", "sales_amount"], ["category"]),
         "uq06": (["average_order_value"], ["channel"]),
+        "uq12": (["sales_amount", "order_count"], ["channel"]),
+        "uq10": (["sales_amount"], ["category"]),
+        "uq11": (["sales_amount"], ["category"]),
         "uq09": (["order_count", "sales_amount", "average_order_value"], []),
     }
     metric_ids, dimension_ids = metric_dimensions.get(kind, ([], []))
@@ -559,6 +578,8 @@ def _classify(normalized: str) -> str | None:
         return "uq09"
     if "本周" in normalized and "category" in dimension_ids and "下降" in normalized:
         return "uq08"
+    if "channel" in dimension_ids and (has_sales_amount or has_order_count) and not has_average_order_value:
+        return "uq12"
     if "channel" in dimension_ids and has_average_order_value:
         return "uq06"
     if (
@@ -569,6 +590,12 @@ def _classify(normalized: str) -> str | None:
         return "uq07"
     if "refund_rate" in metric_ids:
         return "unsupported"
+    if (
+        "category" in dimension_ids
+        and has_sales_amount
+        and any(term in normalized for term in ("最高", "排行", "排名", "top10", "前10"))
+    ):
+        return "uq11"
     if "category" in dimension_ids and (has_order_count or has_sales_amount):
         return "uq05"
     if (
@@ -577,7 +604,13 @@ def _classify(normalized: str) -> str | None:
         and has_sales_amount
     ):
         return "uq04"
-    if "本月" in normalized and has_sales_amount and ("上月" in normalized or "增长" in normalized):
+    completed_month_wording = any(
+        term in normalized for term in ("最近一个完整月", "最近完整月", "上一个完整月")
+    )
+    if has_sales_amount and (
+        ("本月" in normalized and ("上月" in normalized or "增长" in normalized))
+        or (completed_month_wording and any(term in normalized for term in ("上个月", "上月", "增长", "变化", "比较", "对比")))
+    ):
         return "uq03"
     if any(term in normalized for term in ("最近7天", "近7天", "过去7天")) and has_sales_amount:
         return "uq02"
@@ -624,6 +657,8 @@ def _clarification_kind(kind: str) -> tuple[str, str] | None:
         "uq04": ("time_range", "请补充要查看的时间范围，例如“最近 30 天”。"),
         "uq05": ("time_range", "请补充要查看的时间范围，例如“最近 30 天”。"),
         "uq06": ("time_range", "请补充要查看的时间范围，例如“最近 30 天”。"),
+        "uq12": ("time_range", "请补充要查看的时间范围，例如“最近 30 天”。"),
+        "uq11": ("time_range", "请补充要查看的时间范围，例如“最近 30 天”。"),
         "uq09": (
             "comparison_period",
             "请提供两个需要比较的完整日期区间，例如“比较 2025-08-28 至 2025-09-03 和之前一周”。",
@@ -857,17 +892,21 @@ def _answer_for_kind(
                 )
             )
         )
+        current_month_date = date.fromisoformat(current.start_inclusive)
+        previous_month_date = date.fromisoformat(previous.start_inclusive)
+        current_month = f"{current_month_date.year}年{current_month_date.month}月"
+        previous_month = f"{previous_month_date.year}年{previous_month_date.month}月"
         values = [
             _metric(
                 "sales_amount_current",
-                "本月销售额",
+                f"{current_month}销售额",
                 _format_money(current_cents),
                 "CNY",
                 definitions["sales_amount"],
             ),
             _metric(
                 "sales_amount_previous",
-                "上月销售额",
+                f"{previous_month}销售额",
                 _format_money(previous_cents),
                 "CNY",
                 definitions["sales_amount"],
@@ -901,7 +940,7 @@ def _answer_for_kind(
             request_id,
             turn_id,
             "completed",
-            "按固定参考日，最近完整数据月为 2026 年 7 月。",
+            f"按固定参考日比较最近完整月（{current_month}）与前一个月（{previous_month}）。",
             interpretation,
             definitions=[definitions["sales_amount"]],
             visualization=Visualization(type="table", data=data),
@@ -909,7 +948,7 @@ def _answer_for_kind(
             query=debug,
         )
 
-    if kind in {"uq04", "uq05", "uq06", "uq07"}:
+    if kind in {"uq04", "uq05", "uq06", "uq07", "uq11", "uq12"}:
         if date_range is None:
             prompt = "请补充要查看的时间范围，例如“最近 30 天”。"
             session_pending = PendingClarification(turn_id, kind, prompt)
@@ -1047,6 +1086,43 @@ def _answer_for_kind(
                 values=values,
                 query=debug,
             )
+        if kind == "uq11":
+            rows, debug = _execute(engine, "uq11_category_top", params, request_id)
+            result_rows = [
+                ResultRow(
+                    key=str(row["category_id"]),
+                    label=str(row["category_name"]),
+                    values={"sales_amount": _format_money(int(row["sales_cents"]))},
+                )
+                for row in rows
+            ]
+            interpretation = Interpretation(
+                metric_ids=["sales_amount"],
+                dimension_ids=["category"],
+                time_range=date_range,
+                filters=[VALID_ORDER_FILTER, "销售额大于 0"],
+                sort=["sales_amount desc", "category_id asc"],
+                limit=10,
+            )
+            return _base_response(
+                request_id,
+                turn_id,
+                "completed",
+                "以下品类按所选期间销售额降序排列，最多显示 10 个；同额按品类 ID 升序。",
+                interpretation,
+                definitions=[definitions["sales_amount"]],
+                visualization=Visualization(type="bar", data=result_rows),
+                values=[
+                    _metric(
+                        "sales_amount",
+                        "Top 10 品类销售额合计",
+                        _format_money(sum(int(row["sales_cents"]) for row in rows)),
+                        "CNY",
+                        definitions["sales_amount"],
+                    )
+                ],
+                query=debug,
+            )
         rows, debug = _execute(engine, "uq06_channel_aov", params, request_id)
         result_rows = []
         for row in rows:
@@ -1087,17 +1163,38 @@ def _answer_for_kind(
                 )
             )
         )
-        values = [
-            _metric(
-                "average_order_value",
-                "总体客单价",
-                aov_total,
-                "CNY",
-                "所选期间销售额除以所选期间去重有效订单数；按渠道分组时分别计算。",
+        values = []
+        channel_metrics = set()
+        if "sales_amount" in _matched_entity_ids(question, CATALOG.metrics):
+            channel_metrics.add("sales_amount")
+        if "order_count" in _matched_entity_ids(question, CATALOG.metrics):
+            channel_metrics.add("order_count")
+        if "average_order_value" in _matched_entity_ids(question, CATALOG.metrics):
+            channel_metrics.add("average_order_value")
+        if not channel_metrics:
+            channel_metrics = {"average_order_value"}
+        if kind == "uq06":
+            channel_metrics = {"sales_amount", "order_count", "average_order_value"}
+        result_rows = [
+            ResultRow(
+                key=result_row.key,
+                label=result_row.label,
+                values={
+                    metric_id: result_row.values[metric_id]
+                    for metric_id in ("sales_amount", "order_count", "average_order_value")
+                    if metric_id in channel_metrics and metric_id in result_row.values
+                },
             )
+            for result_row in result_rows
         ]
+        if "sales_amount" in channel_metrics:
+            values.append(_metric("sales_amount", "渠道销售额合计", _format_money(total_sales), "CNY", definitions["sales_amount"]))
+        if "order_count" in channel_metrics:
+            values.append(_metric("order_count", "渠道有效订单数合计", total_orders, "orders", definitions["order_count"]))
+        if "average_order_value" in channel_metrics:
+            values.append(_metric("average_order_value", "总体客单价", aov_total, "CNY", "所选期间销售额除以所选期间去重有效订单数；按渠道分组时分别计算。"))
         interpretation = Interpretation(
-            metric_ids=["average_order_value"],
+            metric_ids=[metric for metric in ("sales_amount", "order_count", "average_order_value") if metric in channel_metrics],
             dimension_ids=["channel"],
             time_range=date_range,
             filters=[VALID_ORDER_FILTER],
@@ -1107,9 +1204,9 @@ def _answer_for_kind(
             request_id,
             turn_id,
             "completed",
-            "客单价按各渠道销售额除以该渠道去重有效订单数计算。",
+            "渠道表按问题展示各渠道指标；上方汇总卡列出所问指标在所选期间的合计。",
             interpretation,
-            definitions=[values[0].definition],
+            definitions=[value.definition for value in values],
             visualization=Visualization(type="bar", data=result_rows),
             values=values,
             query=debug,
@@ -1481,7 +1578,7 @@ def answer_question(
                 clarification_prompt=pending.prompt,
             )
         kind = pending.question_kind
-        if kind in {"uq04", "uq05", "uq06", "uq07"}:
+        if kind in {"uq04", "uq05", "uq06", "uq07", "uq11", "uq12"}:
             date_range = _parse_recent_range(normalized)
             if date_range is None:
                 if intent_provider is not None:
@@ -1526,7 +1623,7 @@ def answer_question(
         session.pending = None
     else:
         kind = incoming_kind
-        if kind in {"uq04", "uq05", "uq06", "uq07"}:
+        if kind in {"uq04", "uq05", "uq06", "uq07", "uq11", "uq12"}:
             date_range = _date_range_from_question(normalized)
         if kind == "uq09":
             periods = _parse_two_periods(normalized)
@@ -1607,7 +1704,7 @@ def answer_question(
                     return model_result
         return _answer_for_kind("unsupported", question, request_id, turn_id, query_engine)
 
-    if kind in {"uq04", "uq05", "uq06", "uq07"} and date_range is None:
+    if kind in {"uq04", "uq05", "uq06", "uq07", "uq11", "uq12"} and date_range is None:
         prompt = "请补充要查看的时间范围，例如“最近 30 天”。"
         response = _clarification(request_id, turn_id, kind, prompt)
         session.pending = PendingClarification(turn_id=turn_id, question_kind=kind, prompt=prompt)

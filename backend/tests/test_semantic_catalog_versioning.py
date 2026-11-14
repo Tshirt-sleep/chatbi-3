@@ -24,7 +24,7 @@ def test_additive_alias_requires_minor_version_bump() -> None:
     previous = ACTIVE_CATALOG.catalog
     first = previous.metrics[0]
     current = _catalog_with(
-        version="1.1.0",
+        version="1.2.0",
         change_note="Add approved alias",
         metrics=(first.model_copy(update={"aliases": (*first.aliases, "成交总额")}),)
         + previous.metrics[1:],
@@ -37,7 +37,7 @@ def test_copy_only_change_requires_patch_version_bump() -> None:
     previous = ACTIVE_CATALOG.catalog
     first = previous.capabilities[0]
     current = _catalog_with(
-        version="1.0.1",
+        version="1.1.1",
         change_note="Clarify capability text",
         capabilities=(first.model_copy(update={"description": "昨日销售额和订单数"}),)
         + previous.capabilities[1:],
@@ -50,7 +50,7 @@ def test_metric_definition_change_requires_major_bump() -> None:
     previous = ACTIVE_CATALOG.catalog
     first = previous.metrics[0]
     current = _catalog_with(
-        version="1.1.0",
+        version="1.2.0",
         change_note="Change sales definition",
         metrics=(first.model_copy(update={"definition": "Changed metric meaning"}),)
         + previous.metrics[1:],
@@ -86,7 +86,7 @@ def test_version_must_change_when_catalog_content_changes() -> None:
 
 def test_version_bump_without_catalog_change_is_rejected() -> None:
     previous = ACTIVE_CATALOG.catalog
-    current = _catalog_with(version="1.0.1")
+    current = _catalog_with(version="1.1.1")
 
     with pytest.raises(CatalogVersionError, match="catalog_content_unchanged"):
         validate_version_transition(previous, current)
@@ -96,7 +96,7 @@ def test_catalog_change_requires_a_change_note() -> None:
     previous = ACTIVE_CATALOG.catalog
     first = previous.capabilities[0]
     current = _catalog_with(
-        version="1.0.1",
+        version="1.1.1",
         capabilities=(first.model_copy(update={"description": "Changed description"}),)
         + previous.capabilities[1:],
     )

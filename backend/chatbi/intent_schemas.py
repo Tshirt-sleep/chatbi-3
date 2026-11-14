@@ -40,6 +40,8 @@ class IntentDraft(BaseModel):
             "uq08",
             "uq09",
             "uq10",
+            "uq11",
+            "uq12",
             "saas01",
             "saas02",
             "saas03",
