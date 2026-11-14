@@ -204,6 +204,37 @@ SQL_TEMPLATES: dict[str, str] = {
     """,
 }
 
+UQ07_EMPTY_DIAGNOSTICS_SQL = """
+    WITH eligible_orders AS (
+        SELECT dataset_id, order_id
+        FROM orders
+        WHERE dataset_id = :dataset_id
+          AND order_status IN ('paid', 'completed')
+          AND paid_at IS NOT NULL
+          AND paid_at >= :start_inclusive AND paid_at < :end_exclusive
+    ), matching_items AS (
+        SELECT oi.dataset_id, oi.order_id, oi.order_item_id, oi.product_id
+        FROM order_items oi
+        JOIN eligible_orders o
+          ON o.dataset_id = oi.dataset_id AND o.order_id = oi.order_id
+    ), matching_products AS (
+        SELECT mi.dataset_id, mi.product_id
+        FROM matching_items mi
+        JOIN products p
+          ON p.dataset_id = mi.dataset_id AND p.product_id = mi.product_id
+    )
+    SELECT
+        (SELECT COUNT(*) FROM products WHERE dataset_id = :dataset_id) AS product_count,
+        (SELECT COUNT(*) FROM eligible_orders) AS eligible_order_count,
+        (SELECT COUNT(*) FROM matching_items) AS matching_order_item_count,
+        (SELECT COUNT(DISTINCT product_id) FROM matching_products) AS matching_product_count,
+        (SELECT COUNT(*)
+         FROM refunds r
+         JOIN matching_items mi
+           ON mi.dataset_id = r.dataset_id AND mi.order_item_id = r.order_item_id
+         WHERE r.refund_status = 'completed') AS matching_completed_refund_count
+"""
+
 
 @dataclass
 class PendingClarification:
@@ -337,7 +368,24 @@ def _execute(
     query_id = str(uuid.uuid4())
     with engine.connect() as connection:
         rows = [dict(row._mapping) for row in connection.execute(text(sql), parameters)]
+        empty_diagnostics = None
+        if template_id == "uq07_product_refund_rate" and not rows:
+            diagnostic_row = (
+                connection.execute(text(UQ07_EMPTY_DIAGNOSTICS_SQL), parameters).mappings().one()
+            )
+            empty_diagnostics = {key: int(value) for key, value in diagnostic_row.items()}
     duration_ms = round((time.perf_counter() - started) * 1000)
+    extra_log_fields = (
+        {
+            "date_bounds": {
+                "start_inclusive": parameters["start_inclusive"],
+                "end_exclusive": parameters["end_exclusive"],
+            },
+            "empty_result_counts": empty_diagnostics,
+        }
+        if empty_diagnostics is not None
+        else {}
+    )
     query_logger.info(
         json.dumps(
             {
@@ -348,6 +396,7 @@ def _execute(
                 "query_executed": True,
                 "duration_ms": duration_ms,
                 "result_row_count": len(rows),
+                **extra_log_fields,
             },
             sort_keys=True,
         )
