@@ -81,7 +81,7 @@
 
 为线上故障排查补齐发布和查询摘要：健康接口返回服务版本及 Render commit；HTTP 日志使用路由模板（不写入实际会话路径），包含 request ID、状态码和耗时；电商与 SaaS SQL 执行日志包含 request ID、模板、执行状态、耗时、行数及数据/语义目录版本。日志不记录问题原文、SQL 参数、查询结果、用户身份或凭据。发布后以 Render readiness 与查询日志实测 build ID 和 request ID 串联情况。
 
-首轮发布后，项目方提供 Render 日志截图：`query_execution` 可见，但搜索 `http_request` 无结果；Uvicorn 默认 access log 仍暴露会话路径。改用 `uvicorn.error` 并启用 `--no-access-log` 后，项目方截图确认 `http_request` 可搜到，路由以 `{session_id}` 模板记录且返回状态/耗时。后续以成功返回 ¥257,984.80、41 单的线上请求复核时，同 request ID 搜不到 `query_execution`。定位后将电商执行摘要从查询服务内部移到 API 响应边界，从最终 QueryDebug 与响应 request ID 统一写出，避免服务层日志与 API 请求追踪脱节。该关联修正定向 12 项测试通过、Ruff/mypy 通过。项目方随后提供 Render 截图，确认同一 request_id `95eee477-29fe-4b88-81df-5fa9483477df` 同时关联 `http_request` 与 `query_execution`，同为 build `b0da4b3d09d1af9a1ef3fe9b8ca22dcb06f12502`；HTTP 200、耗时 632ms，查询耗时 628ms、模板 `uq01_daily_summary`、返回 1 行；请求路由为 `/api/v1/sessions/{session_id}/turns`，无实际会话 ID。P13 线上验收完成。
+首轮发布后，项目方提供 Render 日志截图：`query_execution` 可见，但搜索 `http_request` 无结果；Uvicorn 默认 access log 仍暴露会话路径。改用 `uvicorn.error` 并启用 `--no-access-log` 后，项目方截图确认 `http_request` 可搜到，路由以 `{session_id}` 模板记录且返回状态/耗时。后续以成功返回 ¥257,984.80、41 单的线上请求复核时，同 request ID 搜不到 `query_execution`。定位后将电商执行摘要从查询服务内部移到 API 响应边界，从最终 QueryDebug 与响应 request ID 统一写出，避免服务层日志与 API 请求追踪脱节。该关联修正定向 12 项测试通过、Ruff/mypy 通过。项目方随后提供 Render 截图，确认同一 request_id `95eee477-29fe-4b88-81df-5fa9483477df` 同时关联 `http_request` 与 `query_execution`，同为 build `b0da4b3d09d1af9a1ef3fe9b8ca22dcb06f12502`；HTTP 200、耗时 632ms，查询耗时 628ms、模板 `uq01_daily_summary`、返回 1 行；请求路由为 `/api/v1/sessions/{session_id}/turns`，无实际会话 ID。P13 线上验收完成。Linux GitHub Actions 工作流 `.github/workflows/asgi-http-golden.yml` 已运行通过（run `43611376385`）：ASGI query API pytest 22/22；P6 HTTP Golden 10/10 问题、56/56 检查。首次 CI 发现并修复 `harness/golden_cases.json` 末尾无效的字面量 `\n`。
 
 本阶段已关闭口径确认门；记录此前比较的决策项：
 
@@ -270,12 +270,12 @@ P9 全部子项已完成：P9-7 新建 Supabase 空库重建、P5/P6 Golden 对�
 
 | 项目 | 当前值 |
 |---|---|
-| 当前阶段 | P13：轻量可观测性已完成；后续为全量 ASGI HTTP Golden 回归 |
-| 当前任务 | 在兼容事件循环的环境复跑完整 ASGI HTTP Golden 回归 |
+| 当前阶段 | P13：轻量可观测性及 Linux ASGI HTTP Golden 回归均已完成 |
+| 当前任务 | 已完成；持续集成会在 master 推送、PR 和手动触发时运行 |
 | 已完成 | P0–P12；P11 退款数据已追加并更新线上版本；用户已在 Netlify 验收退款率和常用电商问数结果；P10 上线操作与恢复流程已完成 |
-| 未完成 | 推送 Golden JSON 格式修正并确认 GitHub Actions 重跑通过 |
-| 阻塞/待确认 | 本机 Windows 异步测试受 socketpair 限制；首次 CI 的 ASGI pytest 已通过；Golden Harness 暴露 `harness/golden_cases.json` 末尾多余字面量 `\\n`，已删除，修正提交后的 CI 结果待确认。线上 P13 日志核验已由项目方截图确认 |
-| 下一步 | 推送 Golden JSON 修正并确认 GitHub Actions 中 ASGI 路由测试与 P6 HTTP Golden 全部通过；无需修改 Render/Supabase 设置 |
+| 未完成 | 无 |
+| 阻塞/待确认 | 无；本机 Windows 仍受 socketpair 限制，但 Linux CI 已通过。线上 P13 日志核验已由项目方截图确认 |
+| 下一步 | 后续代码变更由 Linux CI 自动执行回归；本任务无需再修改 Render/Supabase 设置 |
 | 最近更新 | 2026-11-14 |
 
 ## 6. 决策与问题记录
