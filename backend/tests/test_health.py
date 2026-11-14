@@ -1,5 +1,6 @@
 import json
 import logging
+from pathlib import Path
 from types import SimpleNamespace
 
 from backend.chatbi.main import live, ready, request_trace
@@ -66,7 +67,7 @@ def test_ready_health_endpoint_reports_unseeded_database(monkeypatch) -> None:
 
 
 def test_request_log_uses_route_template_and_release_metadata(monkeypatch, caplog) -> None:
-    caplog.set_level(logging.INFO, logger="chatbi.request")
+    caplog.set_level(logging.INFO, logger="uvicorn.error")
     monkeypatch.setenv("RENDER_GIT_COMMIT", "abc123def456")
     session_id = "private-session-token"
     request = SimpleNamespace(
@@ -97,6 +98,11 @@ def test_request_log_uses_route_template_and_release_metadata(monkeypatch, caplo
     assert payload["duration_ms"] >= 0
     assert payload["build_id"] == "abc123def456"
     assert session_id not in record.message
+
+
+def test_render_disables_uvicorn_access_logs() -> None:
+    render_config = Path(__file__).parents[2] / "render.yaml"
+    assert "--no-access-log" in render_config.read_text(encoding="utf-8")
 
 
 def test_database_readiness_requires_migration_and_both_mock_datasets() -> None:

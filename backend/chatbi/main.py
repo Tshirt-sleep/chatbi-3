@@ -61,7 +61,8 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type", "X-Request-ID", "X-Mock-User"],
 )
-logger = logging.getLogger("chatbi.request")
+# Use Uvicorn's configured service logger so managed hosts collect these INFO records.
+logger = logging.getLogger("uvicorn.error")
 debug_query_owners: dict[str, str] = {}
 
 
