@@ -14,5 +14,3 @@
     {"id": "UQ-10", "question": "“收入”和“销售额”在这里分别指什么？", "expected_status": "unknown_term", "expected_query_executed": false, "visualization": "none"}
   ]
 }
-
-\n

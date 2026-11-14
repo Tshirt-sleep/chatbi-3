@@ -273,9 +273,9 @@ P9 全部子项已完成：P9-7 新建 Supabase 空库重建、P5/P6 Golden 对�
 | 当前阶段 | P13：轻量可观测性已完成；后续为全量 ASGI HTTP Golden 回归 |
 | 当前任务 | 在兼容事件循环的环境复跑完整 ASGI HTTP Golden 回归 |
 | 已完成 | P0–P12；P11 退款数据已追加并更新线上版本；用户已在 Netlify 验收退款率和常用电商问数结果；P10 上线操作与恢复流程已完成 |
-| 未完成 | 推送 Linux CI 工作流并确认首次 ASGI 回归运行结果 |
-| 阻塞/待确认 | 本机 Windows 异步测试受 socketpair 限制；Linux GitHub Actions 首次运行结果待确认。线上 P13 日志核验已由项目方截图确认 |
-| 下一步 | 推送 Linux CI 工作流，在 GitHub Actions 确认 ASGI 路由测试与 P6 HTTP Golden 全部通过；无需修改 Render/Supabase 设置 |
+| 未完成 | 推送 Golden JSON 格式修正并确认 GitHub Actions 重跑通过 |
+| 阻塞/待确认 | 本机 Windows 异步测试受 socketpair 限制；首次 CI 的 ASGI pytest 已通过；Golden Harness 暴露 `harness/golden_cases.json` 末尾多余字面量 `\\n`，已删除，修正提交后的 CI 结果待确认。线上 P13 日志核验已由项目方截图确认 |
+| 下一步 | 推送 Golden JSON 修正并确认 GitHub Actions 中 ASGI 路由测试与 P6 HTTP Golden 全部通过；无需修改 Render/Supabase 设置 |
 | 最近更新 | 2026-11-14 |
 
 ## 6. 决策与问题记录
