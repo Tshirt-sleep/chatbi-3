@@ -81,7 +81,7 @@
 
 为线上故障排查补齐发布和查询摘要：健康接口返回服务版本及 Render commit；HTTP 日志使用路由模板（不写入实际会话路径），包含 request ID、状态码和耗时；电商与 SaaS SQL 执行日志包含 request ID、模板、执行状态、耗时、行数及数据/语义目录版本。日志不记录问题原文、SQL 参数、查询结果、用户身份或凭据。发布后以 Render readiness 与查询日志实测 build ID 和 request ID 串联情况。
 
-首轮发布后，项目方提供 Render 日志截图：`query_execution` 可见，但搜索 `http_request` 无结果；Uvicorn 默认 access log 仍暴露会话路径。由此确认首轮的请求日志 logger 未进入 Render 收集器，隐私目标也未达成。已开始修正：改用 `uvicorn.error` logger，并在 Render start command 加 `--no-access-log`；修正发布与线上验收待完成。
+首轮发布后，项目方提供 Render 日志截图：`query_execution` 可见，但搜索 `http_request` 无结果；Uvicorn 默认 access log 仍暴露会话路径。改用 `uvicorn.error` 并启用 `--no-access-log` 后，项目方截图确认 `http_request` 可搜到，路由以 `{session_id}` 模板记录且返回状态/耗时。后续以成功返回 ¥257,984.80、41 单的线上请求复核时，同 request ID 搜不到 `query_execution`。定位后将电商执行摘要从查询服务内部移到 API 响应边界，从最终 QueryDebug 与响应 request ID 统一写出，避免服务层日志与 API 请求追踪脱节。该关联修正定向 12 项测试通过、Ruff/mypy 通过；待部署后按新成功请求验收同 ID 关联。
 
 本阶段已关闭口径确认门；记录此前比较的决策项：
 
@@ -271,11 +271,11 @@ P9 全部子项已完成：P9-7 新建 Supabase 空库重建、P5/P6 Golden 对�
 | 项目 | 当前值 |
 |---|---|
 | 当前阶段 | P13：轻量可观测性 |
-| 当前任务 | 为线上版本、API 请求和两类主题查询增加不含敏感内容的可关联摘要 |
+| 当前任务 | 发布电商查询日志关联修正，并在真实结果请求上核对同 request_id |
 | 已完成 | P0–P12；P11 退款数据已追加并更新线上版本；用户已在 Netlify 验收退款率和常用电商问数结果；P10 上线操作与恢复流程已完成 |
-| 未完成 | 发布请求日志修正；验证 Render 可搜索 `http_request` 且不显示实际会话路径；在兼容事件循环的环境复跑完整 ASGI 回归 |
+| 未完成 | 推送本次 query_execution 关联修正；线上复核成功查询的 `http_request` 与 `query_execution` 同 ID；在兼容事件循环的环境复跑完整 ASGI 回归 |
 | 阻塞/待确认 | 本机 Windows 异步测试受 socketpair 限制；线上日志面板需人工查看 |
-| 下一步 | 发布后核验 `http_request` 与 `query_execution` 用同一 request_id 关联且日志没有实际会话路径 |
+| 下一步 | 新版本就绪后提交一次昨天销售额查询，搜索返回请求 ID，确认对应 query_execution 可见且无实际会话路径 |
 | 最近更新 | 2026-11-14 |
 
 ## 6. 决策与问题记录

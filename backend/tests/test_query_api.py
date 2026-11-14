@@ -2,7 +2,7 @@ import asyncio
 import json
 
 import pytest
-from backend.chatbi.main import app, sessions
+from backend.chatbi.main import _log_query_execution, app, sessions
 from backend.chatbi.query_service import ChatSession, PendingClarification, _execute
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import create_engine, text
@@ -38,6 +38,7 @@ def test_ecommerce_query_emits_redacted_execution_log(caplog, monkeypatch) -> No
         },
         "request-safe-id",
     )
+    _log_query_execution("request-safe-id", debug)
     record = next(
         record for record in caplog.records if '"event": "query_execution"' in record.message
     )

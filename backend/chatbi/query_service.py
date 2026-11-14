@@ -392,33 +392,24 @@ def _execute(
             )
             empty_diagnostics = {key: int(value) for key, value in diagnostic_row.items()}
     duration_ms = round((time.perf_counter() - started) * 1000)
-    extra_log_fields = (
-        {
-            "date_bounds": {
-                "start_inclusive": parameters["start_inclusive"],
-                "end_exclusive": parameters["end_exclusive"],
-            },
-            "empty_result_counts": empty_diagnostics,
-        }
-        if empty_diagnostics is not None
-        else {}
-    )
-    query_logger.info(
-        json.dumps(
-            {
-                "event": "query_execution",
-                "request_id": request_id,
-                "query_id": query_id,
-                "template_id": template_id,
-                "query_executed": True,
-                "duration_ms": duration_ms,
-                "result_row_count": len(rows),
-                **release_fields(),
-                **extra_log_fields,
-            },
-            sort_keys=True,
+    if empty_diagnostics is not None:
+        query_logger.info(
+            json.dumps(
+                {
+                    "event": "query_empty_diagnostics",
+                    "request_id": request_id,
+                    "query_id": query_id,
+                    "template_id": template_id,
+                    "date_bounds": {
+                        "start_inclusive": parameters["start_inclusive"],
+                        "end_exclusive": parameters["end_exclusive"],
+                    },
+                    "empty_result_counts": empty_diagnostics,
+                    **release_fields(),
+                },
+                sort_keys=True,
+            )
         )
-    )
     return rows, QueryDebug(
         query_id=query_id,
         template_id=template_id,

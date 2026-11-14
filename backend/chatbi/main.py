@@ -66,6 +66,27 @@ logger = logging.getLogger("uvicorn.error")
 debug_query_owners: dict[str, str] = {}
 
 
+def _log_query_execution(request_id: str, query: QueryDebug) -> None:
+    """Emit query metadata at the API boundary with the request's correlation ID."""
+    if not query.query_executed:
+        return
+    logger.info(
+        json.dumps(
+            {
+                "event": "query_execution",
+                "request_id": request_id,
+                "query_id": query.query_id,
+                "template_id": query.template_id,
+                "query_executed": True,
+                "duration_ms": query.duration_ms,
+                "result_row_count": query.result_row_count,
+                **release_fields(),
+            },
+            sort_keys=True,
+        )
+    )
+
+
 class FeedbackRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     rating: str = Field(pattern="^(positive|negative)$")
@@ -240,6 +261,9 @@ def submit_turn(session_id: str, payload: TurnRequest, request: Request) -> Turn
                 clarifies_turn_id=payload.clarifies_turn_id,
                 intent_provider=_configured_intent_provider(),
             )
+            query = get_debug_query(result.debug_ref) if result.debug_ref else None
+            if query is not None:
+                _log_query_execution(result.request_id, query)
         if result.debug_ref:
             debug_query_owners[result.debug_ref] = identity.user_id
             if len(debug_query_owners) > 500:
