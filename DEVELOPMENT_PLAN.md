@@ -61,7 +61,7 @@
 |---|---|---|---|---|
 | 1 | UQ-07 商品退款订单率 | 补齐 PRD 问数问题，验证事件型比率和商品排行 | 需严格说明退款快照日期口径；线上 Mock 更新须可回滚 | 本地实现与静态/数据库验收完成；线上增量发布单独审查 |
 | 2 | 演示体验小修：数据日期/Mock 提示更醒目、常用问题示例、错误时清晰告诉用户如何重试 | 降低演示时对数据新鲜度和能力边界的误解 | 文案及移动端布局验收；不新增后端/真实数据 | 本地实现完成；线上发布前由项目方审阅 |
-| 3 | 轻量可观测性：记录部署版本、请求状态与耗时的无敏感摘要；复盘冷启动、错误率及平台额度 | 故障排查从纯手动查看日志逐步转为有证据的复盘 | 避免记录问题原文、结果、身份和密钥；免费平台指标有限 | 已启动 P13；上线后检查 Render readiness 和结构化日志 |
+| 3 | 轻量可观测性：记录部署版本、请求状态与耗时的无敏感摘要；复盘冷启动、错误率及平台额度 | 故障排查从纯手动查看日志逐步转为有证据的复盘 | 避免记录问题原文、结果、身份和密钥；免费平台指标有限 | P13 已完成线上核验：Render readiness 与同 request_id 的结构化请求/查询日志一致 |
 | 4 | 会话持久化与反馈保留策略 | 避免 Render 重启后丢失会话；长期保留产品反馈 | 个人演示当前可接受丢会话；涉及 schema、隐私、保留期限和删除策略 | 暂缓，直到确有持续会话或分析反馈的需求 |
 | 5 | 真实登录/多用户/真实业务数据/启用 DeepSeek | 可扩展到实际运营场景 | 明显扩大安全、隐私、成本和运维范围，违反当前 Mock-only 边界或当前模型策略 | 当前不纳入路线；需单独重新立项和审查 |
 
@@ -81,7 +81,7 @@
 
 为线上故障排查补齐发布和查询摘要：健康接口返回服务版本及 Render commit；HTTP 日志使用路由模板（不写入实际会话路径），包含 request ID、状态码和耗时；电商与 SaaS SQL 执行日志包含 request ID、模板、执行状态、耗时、行数及数据/语义目录版本。日志不记录问题原文、SQL 参数、查询结果、用户身份或凭据。发布后以 Render readiness 与查询日志实测 build ID 和 request ID 串联情况。
 
-首轮发布后，项目方提供 Render 日志截图：`query_execution` 可见，但搜索 `http_request` 无结果；Uvicorn 默认 access log 仍暴露会话路径。改用 `uvicorn.error` 并启用 `--no-access-log` 后，项目方截图确认 `http_request` 可搜到，路由以 `{session_id}` 模板记录且返回状态/耗时。后续以成功返回 ¥257,984.80、41 单的线上请求复核时，同 request ID 搜不到 `query_execution`。定位后将电商执行摘要从查询服务内部移到 API 响应边界，从最终 QueryDebug 与响应 request ID 统一写出，避免服务层日志与 API 请求追踪脱节。该关联修正定向 12 项测试通过、Ruff/mypy 通过；待部署后按新成功请求验收同 ID 关联。
+首轮发布后，项目方提供 Render 日志截图：`query_execution` 可见，但搜索 `http_request` 无结果；Uvicorn 默认 access log 仍暴露会话路径。改用 `uvicorn.error` 并启用 `--no-access-log` 后，项目方截图确认 `http_request` 可搜到，路由以 `{session_id}` 模板记录且返回状态/耗时。后续以成功返回 ¥257,984.80、41 单的线上请求复核时，同 request ID 搜不到 `query_execution`。定位后将电商执行摘要从查询服务内部移到 API 响应边界，从最终 QueryDebug 与响应 request ID 统一写出，避免服务层日志与 API 请求追踪脱节。该关联修正定向 12 项测试通过、Ruff/mypy 通过。项目方随后提供 Render 截图，确认同一 request_id `95eee477-29fe-4b88-81df-5fa9483477df` 同时关联 `http_request` 与 `query_execution`，同为 build `b0da4b3d09d1af9a1ef3fe9b8ca22dcb06f12502`；HTTP 200、耗时 632ms，查询耗时 628ms、模板 `uq01_daily_summary`、返回 1 行；请求路由为 `/api/v1/sessions/{session_id}/turns`，无实际会话 ID。P13 线上验收完成。
 
 本阶段已关闭口径确认门；记录此前比较的决策项：
 
@@ -270,12 +270,12 @@ P9 全部子项已完成：P9-7 新建 Supabase 空库重建、P5/P6 Golden 对�
 
 | 项目 | 当前值 |
 |---|---|
-| 当前阶段 | P13：轻量可观测性 |
-| 当前任务 | 发布电商查询日志关联修正，并在真实结果请求上核对同 request_id |
+| 当前阶段 | P13：轻量可观测性已完成；后续为全量 ASGI HTTP Golden 回归 |
+| 当前任务 | 在兼容事件循环的环境复跑完整 ASGI HTTP Golden 回归 |
 | 已完成 | P0–P12；P11 退款数据已追加并更新线上版本；用户已在 Netlify 验收退款率和常用电商问数结果；P10 上线操作与恢复流程已完成 |
-| 未完成 | 推送本次 query_execution 关联修正；线上复核成功查询的 `http_request` 与 `query_execution` 同 ID；在兼容事件循环的环境复跑完整 ASGI 回归 |
-| 阻塞/待确认 | 本机 Windows 异步测试受 socketpair 限制；线上日志面板需人工查看 |
-| 下一步 | 新版本就绪后提交一次昨天销售额查询，搜索返回请求 ID，确认对应 query_execution 可见且无实际会话路径 |
+| 未完成 | 推送 Linux CI 工作流并确认首次 ASGI 回归运行结果 |
+| 阻塞/待确认 | 本机 Windows 异步测试受 socketpair 限制；Linux GitHub Actions 首次运行结果待确认。线上 P13 日志核验已由项目方截图确认 |
+| 下一步 | 推送 Linux CI 工作流，在 GitHub Actions 确认 ASGI 路由测试与 P6 HTTP Golden 全部通过；无需修改 Render/Supabase 设置 |
 | 最近更新 | 2026-11-14 |
 
 ## 6. 决策与问题记录
