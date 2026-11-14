@@ -132,6 +132,39 @@ def _expected_old_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
     return expected
 
 
+def _old_snapshot_mismatches(
+    current_json: dict[str, Any], manifest: dict[str, Any]
+) -> list[str]:
+    """Return safe field labels for mismatched stable snapshot metadata."""
+    expected = _expected_old_manifest(manifest)
+    stable_keys = (
+        "dataset_id",
+        "version",
+        "as_of_date",
+        "timezone",
+        "date_window",
+        "row_counts",
+    )
+    mismatches = []
+    for key in stable_keys:
+        actual = current_json.get(key)
+        wanted = expected.get(key)
+        if key == "row_counts" and isinstance(actual, dict):
+            actual_without_refunds = dict(actual)
+            legacy_refunds = actual_without_refunds.pop("refunds", 0)
+            if legacy_refunds != 0:
+                mismatches.append(key)
+                continue
+            actual = actual_without_refunds
+        if actual != wanted:
+            mismatches.append(key)
+
+    refund_file = current_json.get("files", {}).get("refunds.csv")
+    if refund_file and refund_file.get("rows") != 0:
+        mismatches.append("files.refunds.csv")
+    return mismatches
+
+
 def _count(session: Session, model: type[Any]) -> int:
     return int(
         session.scalar(
@@ -169,11 +202,11 @@ def _preflight(
                 "Target claims v1.1.0 but does not match the verified refund snapshot."
             )
         return current, True
-    if current.version != OLD_VERSION or current_json != _expected_old_manifest(
-        manifest
-    ):
+    metadata_mismatches = _old_snapshot_mismatches(current_json, manifest)
+    if current.version != OLD_VERSION or metadata_mismatches:
         raise SafeUpdateError(
-            "Target is not the expected ecommerce Mock v1.0.0 snapshot."
+            "Target is not the expected ecommerce Mock v1.0.0 snapshot; "
+            f"mismatched metadata fields: {', '.join(metadata_mismatches) or 'version'}."
         )
     if refund_count != 0:
         raise SafeUpdateError(
