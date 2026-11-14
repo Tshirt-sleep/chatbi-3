@@ -350,14 +350,35 @@ export default function App() {
       ? [...current, { question: text }]
       : current.map((message, index) => index === targetIndex ? { question: text } : message));
     try {
-      const response = await fetch(`${API}/sessions/${sessionId}/turns`, {
+      let activeSessionId = sessionId;
+      let response = await fetch(`${API}/sessions/${activeSessionId}/turns`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Mock-User": mockUserId },
         body: JSON.stringify({ question: text, clarifies_turn_id: pendingClarificationId }),
       });
       if (!response.ok) {
         const body = await response.json().catch(() => null) as { detail?: string } | null;
-        throw new Error(body?.detail ?? `请求失败（${response.status}）`);
+        if (response.status === 404 && body?.detail === "Session not found.") {
+          const sessionResponse = await fetch(`${API}/sessions`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-Mock-User": mockUserId },
+            body: JSON.stringify({ dataset_id: datasetId }),
+          });
+          if (!sessionResponse.ok) throw new Error("会话已失效，且无法创建新会话，请刷新页面后重试。");
+          const session = await sessionResponse.json() as { session_id: string };
+          activeSessionId = session.session_id;
+          setSessionId(activeSessionId);
+          setPendingClarificationId(null);
+          response = await fetch(`${API}/sessions/${activeSessionId}/turns`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-Mock-User": mockUserId },
+            body: JSON.stringify({ question: text }),
+          });
+        }
+        if (!response.ok) {
+          const retryBody = await response.json().catch(() => null) as { detail?: string } | null;
+          throw new Error(retryBody?.detail ?? `请求失败（${response.status}）`);
+        }
       }
       const result = await response.json() as TurnResponse;
       setPendingClarificationId(result.status === "clarification_required" ? result.clarification_id : null);
@@ -387,6 +408,7 @@ export default function App() {
     setQuestion("");
     setPendingClarificationId(null);
     setError(null);
+    setHealthCheckKey((current) => current + 1);
   }
 
   function removeMessage(index: number) {
@@ -449,22 +471,33 @@ export default function App() {
           <p className="intro">直接提问，查看结果、指标口径和查询条件。暂不支持的问题会明确提示。</p>
           <div className="status-row"><span className={`status-dot ${health}`} /><span>{health === "checking" ? "正在连接问数服务" : health === "ready" ? "问数服务已就绪" : error ?? "服务不可用"}</span>{health === "unavailable" && <button type="button" className="connection-retry" onClick={() => setHealthCheckKey((current) => current + 1)}>重新连接</button>}</div>
         </div>
-        <div className="data-notice" role="note"><strong>Mock 演示数据</strong><span>快照日 2026-08-01（Asia/Shanghai）；数据日期覆盖 2025-08-01 至 2026-07-31，不代表真实经营结果。</span></div>
+        {messages.length > 0 && <div className="data-notice" role="note"><strong>Mock 演示数据</strong><span>快照日 2026-08-01（Asia/Shanghai）；数据日期覆盖 2025-08-01 至 2026-07-31，不代表真实经营结果。</span></div>}
         {messages.length === 0 ? (
-          <div className="empty-state"><span className="empty-icon">✳</span><h2>从一个具体问题开始</h2><p>{datasetId === "ecommerce_mock_v1" ? "可从销售汇总、近 7 天趋势或近 30 天商品退款订单率开始。" : "当前支持活跃订阅快照、MRR 与新增订阅数；周期指标需要明确时间范围。"}</p><div className="example-list">{examples.map((example) => <button type="button" key={example} onClick={() => void submitQuestion(example)} disabled={health !== "ready" || busy}>{example}<span>→</span></button>)}</div></div>
+          <div className="empty-state">
+            <span className="empty-icon" aria-hidden="true">✳</span>
+            <h2>从一个具体问题开始</h2>
+            <p>{datasetId === "ecommerce_mock_v1" ? "可从销售汇总、近 7 天趋势或近 30 天商品退款订单率开始。" : "当前支持活跃订阅快照、MRR 与新增订阅数；周期指标需要明确时间范围。"}</p>
+            <form className="composer composer-empty" onSubmit={onSubmit}>
+              <label className="question-label" htmlFor="question-input">想看看什么经营数据？我来帮你查查</label>
+              <div className="question-box"><textarea id="question-input" rows={1} maxLength={1000} placeholder={datasetId === "ecommerce_mock_v1" ? "例如：本月和上月的销售额差多少？" : "例如：按套餐看看活跃订阅数？"} value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={onKeyDown} disabled={busy || health !== "ready"} /><button type="submit" disabled={busy || health !== "ready" || !question.trim()}>{busy ? "查询中…" : "查询"}</button></div>
+              <p className="composer-hint">Enter 发送 · Shift + Enter 换行</p>
+            </form>
+            <div className="example-list">{examples.map((example) => <button type="button" key={example} onClick={() => void submitQuestion(example)} disabled={health !== "ready" || busy}>{example}<span>→</span></button>)}</div>
+            <p className="empty-mock-note">Mock 演示数据 · 快照日 2026-08-01 · 不代表真实经营结果</p>
+          </div>
         ) : (
           <div className="conversation" aria-live="polite">
             <div className="conversation-toolbar"><span>本次对话 · {messages.length} 个问题</span><button type="button" onClick={resetConversation} disabled={busy} title="仅清空当前页面显示，不会删除后台记录">↺ 重新开始</button></div>
             {messages.map((message, index) => <div className="turn" key={`${index}-${message.question}`}><div className="user-turn"><div className="user-question"><p>{message.question}</p><span className="avatar user-avatar">我</span></div><div className="user-turn-actions"><button className="delete-turn" type="button" onClick={() => removeMessage(index)} disabled={busy} aria-label="删除这条提问" title="删除这条提问"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6m4-6v6M5.5 7l1 13h11l1-13M9 7V4h6v3" /></svg></button></div></div>{message.response ? <div className="assistant-answer"><span className="avatar bot-avatar">C</span><ResultCard response={message.response} mockUserId={mockUserId} sessionId={sessionId ?? ""} /></div> : message.error ? <div className="assistant-answer"><span className="avatar bot-avatar">C</span><div className="request-error"><p>{message.error}</p><small>请检查服务状态或网络后重试，也可以修改问题再提交。</small><button type="button" onClick={() => void submitQuestion(message.question, index)} disabled={busy || health !== "ready"}>重试这条问题</button></div></div> : <div className="assistant-answer"><span className="avatar bot-avatar">C</span><p className="pending">正在按确定性规则查询<span className="loading-dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></p></div>}</div>)}
           </div>
         )}
-        <form className="composer" onSubmit={onSubmit}>
+        {messages.length > 0 && <form className="composer composer-followup" onSubmit={onSubmit}>
           <label className="question-label" htmlFor="question-input">想看看什么经营数据？我来帮你查查</label>
           <div className="question-box"><textarea id="question-input" rows={1} maxLength={1000} placeholder={datasetId === "ecommerce_mock_v1" ? "例如：本月和上月的销售额差多少？" : "例如：按套餐看看活跃订阅数？"} value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={onKeyDown} disabled={busy || health !== "ready"} /><button type="submit" disabled={busy || health !== "ready" || !question.trim()}>{busy ? "查询中…" : "查询"}</button></div>
           <p className="composer-hint">Enter 发送 · Shift + Enter 换行 · 查询完成或报错后可继续提问</p>
-        </form>
+        </form>}
       </section>
-      <footer>固定 {datasetId === "ecommerce_mock_v1" ? "电商" : "SaaS 订阅"} Mock 数据 · 快照日 2026-08-01 · 不代表真实经营结果</footer>
+      {messages.length > 0 && <footer>固定 {datasetId === "ecommerce_mock_v1" ? "电商" : "SaaS 订阅"} Mock 数据 · 快照日 2026-08-01 · 不代表真实经营结果</footer>}
     </main>
   );
 }
