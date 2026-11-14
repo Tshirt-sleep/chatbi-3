@@ -1,10 +1,55 @@
 import asyncio
+import json
 
 import pytest
 from backend.chatbi.main import app, sessions
-from backend.chatbi.query_service import ChatSession, PendingClarification
+from backend.chatbi.query_service import ChatSession, PendingClarification, _execute
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
+
+
+def test_ecommerce_query_emits_redacted_execution_log(caplog, monkeypatch) -> None:
+    caplog.set_level("INFO", logger="uvicorn.error")
+    monkeypatch.setenv("CHATBI_BUILD_ID", "test-build-123")
+    engine = create_engine("sqlite://")
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE TABLE orders "
+                "(order_id TEXT, dataset_id TEXT, order_status TEXT, "
+                "paid_at TEXT, paid_amount_cents INTEGER)"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO orders VALUES "
+                "('ord_1', 'ecommerce_mock_v1', 'paid', '2026-07-31', 2599)"
+            )
+        )
+
+    rows, debug = _execute(
+        engine,
+        "uq01_daily_summary",
+        {
+            "dataset_id": "ecommerce_mock_v1",
+            "start_inclusive": "2026-07-31",
+            "end_exclusive": "2026-08-01",
+        },
+        "request-safe-id",
+    )
+    record = next(
+        record for record in caplog.records if '"event": "query_execution"' in record.message
+    )
+    event = json.loads(record.message)
+
+    assert rows[0]["order_count"] == 1
+    assert debug.result_row_count == 1
+    assert event["request_id"] == "request-safe-id"
+    assert event["template_id"] == "uq01_daily_summary"
+    assert event["duration_ms"] >= 0
+    assert event["build_id"] == "test-build-123"
+    assert "ord_1" not in record.message
 
 
 @pytest.fixture(autouse=True)
@@ -296,9 +341,7 @@ def test_uq06_channel_aov_matches_golden_result() -> None:
 
 
 def test_uq11_category_sales_top_ten_requires_time_and_sorts_by_sales() -> None:
-    first, result = asyncio.run(
-        _ask_with_clarification("销售额最高的品类有哪些？", "最近 30 天")
-    )
+    first, result = asyncio.run(_ask_with_clarification("销售额最高的品类有哪些？", "最近 30 天"))
 
     assert first["status"] == "clarification_required"
     assert first["debug"]["query_executed"] is False

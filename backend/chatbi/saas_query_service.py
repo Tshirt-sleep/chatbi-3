@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import logging
 import re
 import time
 import uuid
@@ -34,11 +36,13 @@ from .query_schemas import (
     TurnResponse,
     Visualization,
 )
+from .release import release_fields
 from .saas_catalog import ACTIVE_SAAS_CATALOG, DATASET_ID
 
 CATALOG = ACTIVE_SAAS_CATALOG.catalog
 AS_OF = ACTIVE_SAAS_CATALOG.as_of_date
 UTC_PLUS_8 = timezone(timedelta(hours=8))
+query_logger = logging.getLogger("uvicorn.error")
 
 SQL_TEMPLATES = {
     "saas_active_snapshot": """
@@ -303,20 +307,40 @@ def _time_range(question: str) -> TimeRange | None:
 
 
 def _execute(
-    engine: Engine, template_id: str, params: Mapping[str, str | int]
+    engine: Engine, template_id: str, params: Mapping[str, str | int], request_id: str
 ) -> tuple[list[dict[str, Any]], QueryDebug]:
     sql = SQL_TEMPLATES[template_id].strip()
     query_id = str(uuid.uuid4())
     started = time.perf_counter()
     with engine.connect() as connection:
         rows = [dict(row._mapping) for row in connection.execute(text(sql), params)]
+    duration_ms = round((time.perf_counter() - started) * 1000)
+    query_logger.info(
+        json.dumps(
+            {
+                "event": "query_execution",
+                "request_id": request_id,
+                "query_id": query_id,
+                "dataset_id": DATASET_ID,
+                "dataset_version": ACTIVE_SAAS_CATALOG.dataset_version,
+                "semantic_catalog_id": CATALOG.catalog_id,
+                "semantic_catalog_version": CATALOG.version,
+                "template_id": template_id,
+                "query_executed": True,
+                "duration_ms": duration_ms,
+                "result_row_count": len(rows),
+                **release_fields(),
+            },
+            sort_keys=True,
+        )
+    )
     debug = QueryDebug(
         query_id=query_id,
         template_id=template_id,
         sql=sql,
         parameters=dict(params),
         query_executed=True,
-        duration_ms=round((time.perf_counter() - started) * 1000),
+        duration_ms=duration_ms,
         result_row_count=len(rows),
     )
     return rows, debug
@@ -423,7 +447,7 @@ def answer_saas_question(
         }
         query_engine = engine or database.engine
         if "按日" in normalized or "每天" in normalized or "趋势" in normalized:
-            rows, debug = _execute(query_engine, "saas_new_subscriptions_trend", params)
+            rows, debug = _execute(query_engine, "saas_new_subscriptions_trend", params, request_id)
             daily_counts = {str(row["day"]): int(row["new_count"]) for row in rows}
             start_day = date.fromisoformat(selected_range.start_inclusive)
             end_day = date.fromisoformat(selected_range.end_exclusive)
@@ -465,7 +489,7 @@ def answer_saas_question(
                 visualization=Visualization(type="line", data=chart_rows),
                 query=debug,
             )
-        rows, debug = _execute(query_engine, "saas_new_subscriptions_period", params)
+        rows, debug = _execute(query_engine, "saas_new_subscriptions_period", params, request_id)
         count = int(rows[0]["new_count"])
         return _response(
             request_id,
@@ -506,6 +530,7 @@ def answer_saas_question(
             engine or database.engine,
             template,
             {"dataset_id": DATASET_ID, "as_of_exclusive": _bound(AS_OF)},
+            request_id,
         )
         result_rows = []
         total = 0
@@ -553,6 +578,7 @@ def answer_saas_question(
             engine or database.engine,
             template,
             {"dataset_id": DATASET_ID, "as_of_exclusive": _bound(AS_OF)},
+            request_id,
         )
         metric_id = "mrr" if has_mrr else "active_subscriptions"
         result_value: str | int = (

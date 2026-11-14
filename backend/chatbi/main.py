@@ -34,6 +34,7 @@ from .query_service import (
     get_debug_query,
     sessions,
 )
+from .release import APP_VERSION, release_fields
 from .saas_catalog import ACTIVE_SAAS_CATALOG
 from .saas_catalog import DATASET_ID as SAAS_DATASET_ID
 from .saas_query_service import answer_saas_question
@@ -42,7 +43,7 @@ from .semantic_catalog import ACTIVE_CATALOG
 PUBLIC_DEMO = os.getenv("CHATBI_PUBLIC_DEMO", "false").lower() == "true"
 app = FastAPI(
     title="ChatBI API",
-    version="0.1.0",
+    version=APP_VERSION,
     description="Mock-only ChatBI engineering skeleton",
     docs_url=None if PUBLIC_DEMO else "/docs",
     redoc_url=None if PUBLIC_DEMO else "/redoc",
@@ -132,15 +133,19 @@ async def request_trace(request: Request, call_next):  # type: ignore[no-untyped
         response.headers["X-Request-ID"] = request_id
         return response
     finally:
+        scope = getattr(request, "scope", {})
+        route = scope.get("route") if hasattr(scope, "get") else None
+        route_template = getattr(route, "path", "unmatched")
         logger.info(
             json.dumps(
                 {
                     "event": "http_request",
                     "request_id": request_id,
                     "method": request.method,
-                    "path": request.url.path,
+                    "route": route_template,
                     "status_code": status_code,
                     "duration_ms": round((time.perf_counter() - started) * 1000),
+                    **release_fields(),
                 },
                 ensure_ascii=False,
                 sort_keys=True,
@@ -150,7 +155,7 @@ async def request_trace(request: Request, call_next):  # type: ignore[no-untyped
 
 @app.get("/api/v1/health/live", tags=["health"])
 def live() -> dict[str, str]:
-    return {"status": "ok", "service": "chatbi-api"}
+    return {"status": "ok", **release_fields()}
 
 
 @app.get(
@@ -163,9 +168,17 @@ def ready() -> dict[str, str] | JSONResponse:
     if not check_database():
         return JSONResponse(
             status_code=503,
-            content={"status": "not_ready", "dependency": "database_or_mock_data"},
+            content={
+                "status": "not_ready",
+                "dependency": "database_or_mock_data",
+                **release_fields(),
+            },
         )
-    return {"status": "ready", "dependency": "database_and_mock_data"}
+    return {
+        "status": "ready",
+        "dependency": "database_and_mock_data",
+        **release_fields(),
+    }
 
 
 @app.post("/api/v1/sessions", response_model=SessionResponse, tags=["sessions"])
@@ -246,6 +259,7 @@ def submit_turn(session_id: str, payload: TurnRequest, request: Request) -> Turn
             "request_id": request.state.request_id,
             "error_type": type(error).__name__,
             "sqlstate": sqlstate,
+            **release_fields(),
         }
         if os.getenv("CHATBI_PUBLIC_DEMO", "false").lower() != "true":
             error_log["database_message"] = diagnostic

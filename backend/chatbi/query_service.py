@@ -41,6 +41,7 @@ from .query_schemas import (
     TurnResponse,
     Visualization,
 )
+from .release import release_fields
 from .saas_catalog import ACTIVE_SAAS_CATALOG
 from .semantic_catalog import ACTIVE_CATALOG
 from .time_periods import completed_month_comparison, completed_week_comparison
@@ -412,6 +413,7 @@ def _execute(
                 "query_executed": True,
                 "duration_ms": duration_ms,
                 "result_row_count": len(rows),
+                **release_fields(),
                 **extra_log_fields,
             },
             sort_keys=True,
@@ -578,7 +580,11 @@ def _classify(normalized: str) -> str | None:
         return "uq09"
     if "本周" in normalized and "category" in dimension_ids and "下降" in normalized:
         return "uq08"
-    if "channel" in dimension_ids and (has_sales_amount or has_order_count) and not has_average_order_value:
+    if (
+        "channel" in dimension_ids
+        and (has_sales_amount or has_order_count)
+        and not has_average_order_value
+    ):
         return "uq12"
     if "channel" in dimension_ids and has_average_order_value:
         return "uq06"
@@ -609,7 +615,12 @@ def _classify(normalized: str) -> str | None:
     )
     if has_sales_amount and (
         ("本月" in normalized and ("上月" in normalized or "增长" in normalized))
-        or (completed_month_wording and any(term in normalized for term in ("上个月", "上月", "增长", "变化", "比较", "对比")))
+        or (
+            completed_month_wording
+            and any(
+                term in normalized for term in ("上个月", "上月", "增长", "变化", "比较", "对比")
+            )
+        )
     ):
         return "uq03"
     if any(term in normalized for term in ("最近7天", "近7天", "过去7天")) and has_sales_amount:
@@ -1188,13 +1199,41 @@ def _answer_for_kind(
             for result_row in result_rows
         ]
         if "sales_amount" in channel_metrics:
-            values.append(_metric("sales_amount", "渠道销售额合计", _format_money(total_sales), "CNY", definitions["sales_amount"]))
+            values.append(
+                _metric(
+                    "sales_amount",
+                    "渠道销售额合计",
+                    _format_money(total_sales),
+                    "CNY",
+                    definitions["sales_amount"],
+                )
+            )
         if "order_count" in channel_metrics:
-            values.append(_metric("order_count", "渠道有效订单数合计", total_orders, "orders", definitions["order_count"]))
+            values.append(
+                _metric(
+                    "order_count",
+                    "渠道有效订单数合计",
+                    total_orders,
+                    "orders",
+                    definitions["order_count"],
+                )
+            )
         if "average_order_value" in channel_metrics:
-            values.append(_metric("average_order_value", "总体客单价", aov_total, "CNY", "所选期间销售额除以所选期间去重有效订单数；按渠道分组时分别计算。"))
+            values.append(
+                _metric(
+                    "average_order_value",
+                    "总体客单价",
+                    aov_total,
+                    "CNY",
+                    "所选期间销售额除以所选期间去重有效订单数；按渠道分组时分别计算。",
+                )
+            )
         interpretation = Interpretation(
-            metric_ids=[metric for metric in ("sales_amount", "order_count", "average_order_value") if metric in channel_metrics],
+            metric_ids=[
+                metric
+                for metric in ("sales_amount", "order_count", "average_order_value")
+                if metric in channel_metrics
+            ],
             dimension_ids=["channel"],
             time_range=date_range,
             filters=[VALID_ORDER_FILTER],
