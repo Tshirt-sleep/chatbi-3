@@ -49,6 +49,6 @@ HTTP Adapter 逐题加载 `golden_cases.json`，提交会话/问题/澄清回答
 
 P6 完成基线：UQ-01 至 UQ-10 的 HTTP Golden 全部通过（总检查数随每题精确结果检查变化），覆盖预期图表类型；UQ-04/05/06/09 澄清首轮均未查询，UQ-10 未查询；UQ-07 按 completed 退款订单去重查询；UQ-08、UQ-09 使用按分精度修正后的黄金值。
 
-P8-4 SaaS 主题使用直接 FastAPI 路由契约 Harness，避免 Windows asyncio `socketpair` 环境卡点；模型解析另由注入的固定 Provider 检验活动语义目录上下文和受控计划校验。报告见 `data/local/p8-saas-eval.json`。
+自然问法覆盖：`golden_cases.json` 在 UQ-01–10 标准问题之外，逐项加入常见口语变体；每个已支持变体引用对应标准问题的精确结果，核对状态、是否执行查询、图表、完整数值/分组行和 Mock Evidence。另有“营收”歧义澄清与未支持的“退款金额”拒答用例，确认不执行查询。Linux GitHub Actions 会运行 `backend/tests/test_query_api.py` 与完整 ASGI HTTP Golden Harness。
 
-\n
+P8-4 SaaS 主题使用直接 FastAPI 路由契约 Harness，避免 Windows asyncio `socketpair` 环境卡点；模型解析另由注入的固定 Provider 检验活动语义目录上下文和受控计划校验。报告见 `data/local/p8-saas-eval.json`。

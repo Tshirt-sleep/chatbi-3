@@ -49,7 +49,7 @@ jobs:
           python -m backend.chatbi.seed --reset
 
       - name: Run ASGI query API regression tests
-        run: python -m pytest backend/tests/test_query_api.py -q
+        run: python -m pytest backend/tests/test_query_api.py backend/tests/test_semantic_resolver.py -q
 
       - name: Run P6 ASGI HTTP Golden suite
         run: python -m harness.run_query_eval --output data/local/p6-query-report.json

@@ -567,9 +567,17 @@ def _classify(normalized: str) -> str | None:
     has_order_count = "order_count" in metric_ids
     has_average_order_value = "average_order_value" in metric_ids
 
-    if "为什么" in normalized and has_order_count and has_sales_amount:
+    if (
+        any(term in normalized for term in ("为什么", "为何", "原因"))
+        and has_order_count
+        and has_sales_amount
+    ):
         return "uq09"
-    if "本周" in normalized and "category" in dimension_ids and "下降" in normalized:
+    if (
+        "本周" in normalized
+        and "category" in dimension_ids
+        and any(term in normalized for term in ("下降", "下滑", "减少", "跌幅"))
+    ):
         return "uq08"
     if (
         "channel" in dimension_ids
@@ -582,7 +590,7 @@ def _classify(normalized: str) -> str | None:
     if (
         "product" in dimension_ids
         and "refund_rate" in metric_ids
-        and any(term in normalized for term in ("最高", "前10", "top10", "排行", "排名"))
+        and any(term in normalized for term in ("最高", "前10", "前十", "top10", "排行", "排名"))
     ):
         return "uq07"
     if "refund_rate" in metric_ids:
@@ -597,7 +605,7 @@ def _classify(normalized: str) -> str | None:
         return "uq05"
     if (
         "product" in dimension_ids
-        and any(term in normalized for term in ("前10", "top10", "最高"))
+        and any(term in normalized for term in ("前10", "前十", "top10", "最高", "排行", "排名"))
         and has_sales_amount
     ):
         return "uq04"
@@ -609,12 +617,44 @@ def _classify(normalized: str) -> str | None:
         or (
             completed_month_wording
             and any(
-                term in normalized for term in ("上个月", "上月", "增长", "变化", "比较", "对比")
+                term in normalized
+                for term in (
+                    "上个月",
+                    "上月",
+                    "上一个月",
+                    "前一个月",
+                    "上上个月",
+                    "增长",
+                    "变化",
+                    "比较",
+                    "对比",
+                    "相比",
+                    "比",
+                )
             )
         )
     ):
         return "uq03"
-    if any(term in normalized for term in ("最近7天", "近7天", "过去7天")) and has_sales_amount:
+    if (
+        any(
+            term in normalized
+            for term in (
+                "最近7天",
+                "近7天",
+                "过去7天",
+                "最近七天",
+                "近七天",
+                "过去七天",
+                "最近一周",
+                "近一周",
+                "过去一周",
+                "最近一星期",
+                "近一星期",
+                "过去一星期",
+            )
+        )
+        and has_sales_amount
+    ):
         return "uq02"
     if ("昨天" in normalized or "昨日" in normalized) and (has_sales_amount or has_order_count):
         return "uq01"

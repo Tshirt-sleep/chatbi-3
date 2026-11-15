@@ -246,12 +246,13 @@ async def evaluate_case(
                 },
             ]
         )
-        if case["id"] in expected:
-            if "values" in expected[case["id"]]:
+        expected_case_id = case.get("expected_case_id", case["id"])
+        if expected_case_id in expected:
+            if "values" in expected[expected_case_id]:
                 actual_values = {
                     item["metric_id"]: item["value"] for item in result["values"]
                 }
-                target = expected[case["id"]]["values"]
+                target = expected[expected_case_id]["values"]
                 checks.append(
                     {
                         "id": f"{case['id']}:exact_values",
@@ -260,9 +261,9 @@ async def evaluate_case(
                         "passed": actual_values == target,
                     }
                 )
-            if "rows" in expected[case["id"]]:
+            if "rows" in expected[expected_case_id]:
                 actual_rows = result["visualization"]["data"]
-                target_rows = expected[case["id"]]["rows"]
+                target_rows = expected[expected_case_id]["rows"]
                 actual_projection = [
                     (row["label"], row["values"]) for row in actual_rows
                 ]

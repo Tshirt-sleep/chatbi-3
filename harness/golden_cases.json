@@ -11,6 +11,17 @@
     {"id": "UQ-07", "question": "最近 30 天退款率最高的商品有哪些？", "expected_status": "completed", "expected_query_executed": true, "visualization": "table"},
     {"id": "UQ-08", "question": "哪些类目本周销售额较上周下降最多？", "expected_status": "completed", "expected_query_executed": true, "visualization": "bar"},
     {"id": "UQ-09", "question": "订单数增加了，销售额为什么没同步增加？", "clarification": "比较 2025-08-28 至 2025-09-03 和之前一周", "expected_status": "completed", "expected_query_executed": true, "visualization": "table"},
-    {"id": "UQ-10", "question": "“收入”和“销售额”在这里分别指什么？", "expected_status": "unknown_term", "expected_query_executed": false, "visualization": "none"}
+    {"id": "UQ-10", "question": "“收入”和“销售额”在这里分别指什么？", "expected_status": "unknown_term", "expected_query_executed": false, "visualization": "none"},
+    {"id": "NL-01-yesterday-gmv", "question": "昨日流水和订单量分别是多少？", "expected_case_id": "UQ-01", "expected_status": "completed", "expected_query_executed": true, "visualization": "kpi"},
+    {"id": "NL-02-weekly-trend", "question": "近一周每天的 GMV 走势怎么样？", "expected_case_id": "UQ-02", "expected_status": "completed", "expected_query_executed": true, "visualization": "line"},
+    {"id": "NL-03-month-comparison", "question": "最近完整月销售额比前一个月高多少？", "expected_case_id": "UQ-03", "expected_status": "completed", "expected_query_executed": true, "visualization": "table"},
+    {"id": "NL-04-product-top-ten", "question": "近30天 GMV 排名前十的 SKU 有哪些？", "expected_case_id": "UQ-04", "expected_status": "completed", "expected_query_executed": true, "visualization": "bar"},
+    {"id": "NL-05-category-breakdown", "question": "过去30天按品类拆分销售额和订单数。", "expected_case_id": "UQ-05", "expected_status": "completed", "expected_query_executed": true, "visualization": "bar"},
+    {"id": "NL-06-channel-average-order", "question": "近30天各渠道平均订单金额分别多少？", "expected_case_id": "UQ-06", "expected_status": "completed", "expected_query_executed": true, "visualization": "bar"},
+    {"id": "NL-07-product-refund-ranking", "question": "近30天哪些 SKU 的退款订单率最高？", "expected_case_id": "UQ-07", "expected_status": "completed", "expected_query_executed": true, "visualization": "table"},
+    {"id": "NL-08-category-sales-drop", "question": "本周相较上周，哪些类目的销售额下滑最多？", "expected_case_id": "UQ-08", "expected_status": "completed", "expected_query_executed": true, "visualization": "bar"},
+    {"id": "NL-09-sales-order-explanation", "question": "订单量涨了但流水没涨，是什么原因？", "clarification": "比较 2025-08-28 至 2025-09-03 和之前一周", "expected_case_id": "UQ-09", "expected_status": "completed", "expected_query_executed": true, "visualization": "table"},
+    {"id": "NL-10-revenue-clarification", "question": "营收和销售额有何不同？", "expected_status": "unknown_term", "expected_query_executed": false, "visualization": "none"},
+    {"id": "NL-11-unsupported-refund-amount", "question": "最近30天退款金额是多少？", "expected_status": "unsupported", "expected_query_executed": false, "visualization": "none"}
   ]
 }
