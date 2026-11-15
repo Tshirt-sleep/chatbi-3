@@ -53,6 +53,7 @@ CATALOG_VERSION = CATALOG.version
 AS_OF_DATE = ACTIVE_CATALOG.as_of_date
 TIMEZONE = CATALOG.timezone
 VALID_ORDER_FILTER = "order_status IN ('paid', 'completed') AND paid_at IS NOT NULL"
+_DATE_TOKEN_PATTERN = r"20\d{2}-\d{1,2}-\d{1,2}|20\d{2}年\d{1,2}月\d{1,2}日"
 METRIC_DEFINITIONS = {
     metric.id: metric.definition for metric in CATALOG.metrics if metric.status == "active"
 }
@@ -64,6 +65,14 @@ SQL_TEMPLATES: dict[str, str] = {
     "uq01_daily_summary": """
         SELECT COALESCE(SUM(paid_amount_cents), 0) AS sales_cents,
                COUNT(DISTINCT order_id) AS order_count
+        FROM orders
+        WHERE dataset_id = :dataset_id
+          AND order_status IN ('paid', 'completed')
+          AND paid_at IS NOT NULL
+          AND paid_at >= :start_inclusive AND paid_at < :end_exclusive
+    """,
+    "uq13_period_sales_summary": """
+        SELECT COALESCE(SUM(paid_amount_cents), 0) AS sales_cents
         FROM orders
         WHERE dataset_id = :dataset_id
           AND order_status IN ('paid', 'completed')
@@ -554,7 +563,13 @@ def _active_semantic_suggestions(include_dimensions: bool = False) -> list[str]:
 
 
 def _classify(normalized: str) -> str | None:
-    if _matched_catalog_term(normalized, "ambiguous") is not None:
+    ambiguous_term = _matched_catalog_term(normalized, "ambiguous")
+    revenue_confirmed_as_sales = (
+        ambiguous_term is not None
+        and "sales_amount" in ambiguous_term.candidate_ids
+        and _has_explicit_sales_mapping(normalized, ambiguous_term.text)
+    )
+    if ambiguous_term is not None and not revenue_confirmed_as_sales:
         return "ambiguous_term"
     if _matched_catalog_term(normalized, "unsupported") is not None:
         return "unsupported_term"
@@ -566,6 +581,19 @@ def _classify(normalized: str) -> str | None:
     has_sales_amount = "sales_amount" in metric_ids
     has_order_count = "order_count" in metric_ids
     has_average_order_value = "average_order_value" in metric_ids
+
+    if revenue_confirmed_as_sales:
+        only_sales_metric = has_sales_amount and not (
+            has_order_count or has_average_order_value or "refund_rate" in metric_ids
+        )
+        if (
+            only_sales_metric
+            and not dimension_ids
+            and any(term in normalized for term in ("查", "统计", "多少", "合计", "总额"))
+        ):
+            return "uq13"
+        if only_sales_metric:
+            return "revenue_definition"
 
     if (
         any(term in normalized for term in ("为什么", "为何", "原因"))
@@ -656,9 +684,30 @@ def _classify(normalized: str) -> str | None:
         and has_sales_amount
     ):
         return "uq02"
+    if has_sales_amount and _parse_recent_range(normalized) is not None:
+        return "uq13"
     if ("昨天" in normalized or "昨日" in normalized) and (has_sales_amount or has_order_count):
         return "uq01"
     return None
+
+
+def _has_explicit_sales_mapping(question: str, ambiguous_label: str) -> bool:
+    """Only treat an ambiguous term as sales after an explicit user assertion."""
+    normalized = _normalize_semantic_text(question)
+    label = _normalize_semantic_text(ambiguous_label)
+    position = normalized.find(label)
+    if position < 0:
+        return False
+    remainder = normalized[position + len(label) :]
+    confirmation = re.match(r"(?:就是|等于|指的是|指|按|按照)(?:本系统|系统)?", remainder)
+    if confirmation is None:
+        return False
+    remainder = remainder[confirmation.end() :]
+    sales_metric = _METRICS_BY_ID["sales_amount"]
+    return any(
+        _normalize_semantic_text(alias) in remainder
+        for alias in (sales_metric.label, *sales_metric.aliases)
+    )
 
 
 def _group_dimension(normalized: str) -> str | None:
@@ -703,7 +752,7 @@ def _clarification_kind(kind: str) -> tuple[str, str] | None:
         "uq11": ("time_range", "请补充要查看的时间范围，例如“最近 30 天”。"),
         "uq09": (
             "comparison_period",
-            "请提供两个需要比较的完整日期区间，例如“比较 2025-08-28 至 2025-09-03 和之前一周”。",
+            "请提供两个需要比较的完整日期区间，例如“比较 2025-08-28 至 2025-09-03 和之前一周”；也可写成“比较 2025年8月28日至2025年9月3日和之前一周”。",
         ),
     }
     return prompts.get(kind)
@@ -749,6 +798,9 @@ def _date_range_from_question(normalized: str) -> TimeRange | None:
     recent = _parse_recent_range(normalized)
     if recent:
         return recent
+    explicit = _parse_explicit_range(normalized)
+    if explicit:
+        return explicit
     if "昨天" in normalized or "昨日" in normalized:
         return _clock_range("yesterday")
     if "本月" in normalized:
@@ -761,18 +813,18 @@ def _date_range_from_question(normalized: str) -> TimeRange | None:
 
 
 def _parse_two_periods(normalized: str) -> tuple[TimeRange, TimeRange] | None:
-    dates = re.findall(r"(20\d{2}-\d{2}-\d{2})", normalized)
+    dates = re.findall(_DATE_TOKEN_PATTERN, normalized)
     if len(dates) < 2:
         return None
     if ("之前一周" in normalized and len(dates) != 2) or (
         "之前一周" not in normalized and len(dates) != 4
     ):
         return None
-    try:
-        current_start = date.fromisoformat(dates[0])
-        current_last_day = date.fromisoformat(dates[1])
-    except ValueError:
+    parsed_dates = [_parse_date_token(token) for token in dates]
+    if any(value is None for value in parsed_dates):
         return None
+    current_start, current_last_day = parsed_dates[0], parsed_dates[1]
+    assert current_start is not None and current_last_day is not None
     current_end = current_last_day + timedelta(days=1)
     duration = (current_end - current_start).days
     if duration < 1 or duration > 366:
@@ -781,10 +833,8 @@ def _parse_two_periods(normalized: str) -> tuple[TimeRange, TimeRange] | None:
         previous_end = current_start
         previous_start = previous_end - timedelta(days=duration)
     else:
-        try:
-            previous_start = date.fromisoformat(dates[2])
-            previous_last_day = date.fromisoformat(dates[3])
-        except (ValueError, IndexError):
+        previous_start, previous_last_day = parsed_dates[2], parsed_dates[3]
+        if previous_start is None or previous_last_day is None:
             return None
         previous_end = previous_last_day + timedelta(days=1)
     dataset_start = ACTIVE_CATALOG.dataset_start_date
@@ -796,6 +846,38 @@ def _parse_two_periods(normalized: str) -> tuple[TimeRange, TimeRange] | None:
     ):
         return None
     return _range(current_start, current_end), _range(previous_start, previous_end)
+
+
+def _parse_date_token(token: str) -> date | None:
+    try:
+        if "年" in token:
+            match = re.fullmatch(r"(20\d{2})年(\d{1,2})月(\d{1,2})日", token)
+        else:
+            match = re.fullmatch(r"(20\d{2})-(\d{1,2})-(\d{1,2})", token)
+        if match is None:
+            return None
+        year, month, day = (int(part) for part in match.groups())
+        return date(year, month, day)
+    except ValueError:
+        return None
+
+
+def _parse_explicit_range(normalized: str) -> TimeRange | None:
+    dates = re.findall(_DATE_TOKEN_PATTERN, normalized)
+    if len(dates) != 2:
+        return None
+    start, last_day = (_parse_date_token(token) for token in dates)
+    if start is None or last_day is None:
+        return None
+    end = last_day + timedelta(days=1)
+    if (
+        start >= last_day + timedelta(days=1)
+        or (end - start).days > 366
+        or start < ACTIVE_CATALOG.dataset_start_date
+        or end > AS_OF_DATE
+    ):
+        return None
+    return _range(start, end)
 
 
 def _metric(
@@ -824,6 +906,54 @@ def _answer_for_kind(
     periods: tuple[TimeRange, TimeRange] | None = None,
 ) -> TurnResponse:
     definitions = METRIC_DEFINITIONS
+    if kind == "revenue_definition":
+        sales = _METRICS_BY_ID["sales_amount"]
+        return _base_response(
+            request_id,
+            turn_id,
+            "completed",
+            f"收到，本次按你澄清的口径将“营收”理解为“{sales.label}”。{sales.label}口径为：{sales.definition}（退款不扣减）。",
+            Interpretation(metric_ids=["sales_amount"]),
+            definitions=[sales.definition],
+        )
+
+    if kind == "uq13":
+        if date_range is None:
+            return _clarification(
+                request_id, turn_id, kind, "请补充明确的时间范围，例如“最近 30 天”。"
+            )
+        rows, debug = _execute(
+            engine, "uq13_period_sales_summary", _params_for_range(date_range), request_id
+        )
+        sales = _METRICS_BY_ID["sales_amount"]
+        amount = _format_money(int(rows[0]["sales_cents"]))
+        value = _metric("sales_amount", "期间销售额", amount, "CNY", definitions["sales_amount"])
+        interpretation = Interpretation(
+            metric_ids=["sales_amount"],
+            time_range=date_range,
+            filters=[VALID_ORDER_FILTER],
+        )
+        return _base_response(
+            request_id,
+            turn_id,
+            "completed",
+            f"所选期间销售额为 {amount} 元。按支付时间归属，统计支付成功或已完成订单的折后实付金额，不扣退款。",
+            interpretation,
+            definitions=[sales.definition],
+            visualization=Visualization(
+                type="kpi",
+                data=[
+                    ResultRow(
+                        key="sales_amount",
+                        label="期间销售额",
+                        values={"sales_amount": amount},
+                    )
+                ],
+            ),
+            values=[value],
+            query=debug,
+        )
+
     if kind == "uq01":
         actual_range = date_range or _clock_range("yesterday")
         rows, debug = _execute(
@@ -1428,9 +1558,9 @@ def _answer_for_kind(
         term = _matched_catalog_term(question, "ambiguous")
         sales_metric = _METRICS_BY_ID["sales_amount"]
         prompt = (
-            f"“{term.text if term else '该术语'}”没有默认映射为“{sales_metric.label}”。"
-            f"“{sales_metric.label}”口径为：{sales_metric.definition}（退款不扣减）。"
-            f"{term.note if term else '请澄清该术语的具体含义。'} 澄清前不执行查询。"
+            f"系统没有单独定义“{term.text if term else '该术语'}”指标；"
+            f"当前可查询的“{sales_metric.label}”口径为：{sales_metric.definition}（退款不扣减）。"
+            "两者不会自动视为同一指标。若你希望本次按销售额查询，请明确说“营收按销售额口径”，并提供时间范围。"
         )
         return _base_response(
             request_id,
@@ -1690,6 +1820,18 @@ def answer_question(
                     clarification_id=pending.turn_id,
                     clarification_prompt=pending.prompt,
                 )
+        elif kind == "uq13":
+            date_range = _date_range_from_question(normalized)
+            if date_range is None:
+                return _base_response(
+                    request_id,
+                    turn_id,
+                    "clarification_required",
+                    "我还没有识别出明确的时间范围，请补充，例如“最近 30 天”。",
+                    Interpretation(clarification_state="required"),
+                    clarification_id=pending.turn_id,
+                    clarification_prompt=pending.prompt,
+                )
         session.pending = None
     else:
         kind = incoming_kind
@@ -1697,6 +1839,8 @@ def answer_question(
             date_range = _date_range_from_question(normalized)
         if kind == "uq09":
             periods = _parse_two_periods(normalized)
+        if kind == "uq13":
+            date_range = _date_range_from_question(normalized)
 
     if dimension and (kind is None or kind in {"uq01", "uq02"}):
         if kind is None and session.last_metric_ids and session.last_time_range:
@@ -1781,9 +1925,13 @@ def answer_question(
         return response
 
     if kind == "uq09" and periods is None:
-        prompt = (
-            "请提供两个需要比较的完整日期区间，例如“比较 2025-08-28 至 2025-09-03 和之前一周”。"
-        )
+        prompt = "请提供两个需要比较的完整日期区间，例如“比较 2025-08-28 至 2025-09-03 和之前一周”；也可写成“比较 2025年8月28日至2025年9月3日和之前一周”。"
+        response = _clarification(request_id, turn_id, kind, prompt)
+        session.pending = PendingClarification(turn_id=turn_id, question_kind=kind, prompt=prompt)
+        return response
+
+    if kind == "uq13" and date_range is None:
+        prompt = "请补充明确的时间范围，例如“最近 30 天”或“2025年8月1日至2025年8月7日”。"
         response = _clarification(request_id, turn_id, kind, prompt)
         session.pending = PendingClarification(turn_id=turn_id, question_kind=kind, prompt=prompt)
         return response

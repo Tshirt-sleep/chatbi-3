@@ -62,6 +62,9 @@ SUPPORTED_CAPABILITIES = MappingProxyType(
             frozenset({"channel"}),
             "uq06_channel_aov",
         ),
+        "uq13": QueryCapability(
+            frozenset({"sales_amount"}), frozenset(), "uq13_period_sales_summary"
+        ),
     }
 )
 

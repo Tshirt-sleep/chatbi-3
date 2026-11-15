@@ -1,11 +1,11 @@
 {
   "schema_version": "1",
   "catalog_id": "ecommerce_mock_semantics",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "status": "active",
   "dataset_id": "ecommerce_mock_v1",
   "timezone": "Asia/Shanghai",
-  "change_note": "按渠道支持销售额与订单数；新增 UQ-11 品类销售额 Top 10；保留 UQ-10 口径澄清并改进完整月对比标签",
+  "change_note": "新增 UQ-13 指定区间销售额汇总；用户明确确认歧义术语为销售额后按销售额口径处理",
   "metrics": [
     {
       "id": "sales_amount",
@@ -419,6 +419,17 @@
         "channel"
       ],
       "template_id": "uq06_channel_aov"
+    },
+    {
+      "id": "uq13",
+      "description": "按用户明确给定的自然日范围汇总有效订单销售额；不扣退款",
+      "requires_explicit_time_range": true,
+      "requires_comparison_period": false,
+      "metric_ids": [
+        "sales_amount"
+      ],
+      "dimension_ids": [],
+      "template_id": "uq13_period_sales_summary"
     }
   ]
 }

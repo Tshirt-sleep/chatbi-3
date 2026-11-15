@@ -4,6 +4,7 @@ from backend.chatbi.query_service import (
     _group_dimension,
     _matched_catalog_term,
     _matched_entity_ids,
+    _parse_explicit_range,
 )
 
 
@@ -38,8 +39,17 @@ def test_common_natural_wording_routes_to_allowlisted_intents() -> None:
         ("本周相较上周哪些类目的销售额下滑最多", "uq08"),
         ("订单量涨了但流水没涨，是什么原因", "uq09"),
         ("营收和销售额有何不同", "ambiguous_term"),
+        ("营收就是销售额，最近30天销售额是多少", "uq13"),
+        ("我说的营收就是销售额，请解释系统的销售额口径", "revenue_definition"),
+        ("最近30天销售额是多少", "uq13"),
         ("最近30天退款金额是多少", None),
     )
 
     for question, expected in cases:
         assert _classify(question) == expected
+
+
+def test_explicit_date_ranges_accept_iso_and_chinese_dates() -> None:
+    assert _parse_explicit_range("销售额 2025-08-17 至 2025-08-23") == _parse_explicit_range(
+        "销售额 2025年8月17日至2025年8月23日"
+    )

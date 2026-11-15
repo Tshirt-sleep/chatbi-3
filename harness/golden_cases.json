@@ -22,6 +22,7 @@
     {"id": "NL-08-category-sales-drop", "question": "本周相较上周，哪些类目的销售额下滑最多？", "expected_case_id": "UQ-08", "expected_status": "completed", "expected_query_executed": true, "visualization": "bar"},
     {"id": "NL-09-sales-order-explanation", "question": "订单量涨了但流水没涨，是什么原因？", "clarification": "比较 2025-08-28 至 2025-09-03 和之前一周", "expected_case_id": "UQ-09", "expected_status": "completed", "expected_query_executed": true, "visualization": "table"},
     {"id": "NL-10-revenue-clarification", "question": "营收和销售额有何不同？", "expected_status": "unknown_term", "expected_query_executed": false, "visualization": "none"},
-    {"id": "NL-11-unsupported-refund-amount", "question": "最近30天退款金额是多少？", "expected_status": "unsupported", "expected_query_executed": false, "visualization": "none"}
+    {"id": "NL-11-unsupported-refund-amount", "question": "最近30天退款金额是多少？", "expected_status": "unsupported", "expected_query_executed": false, "visualization": "none"},
+    {"id": "NL-12-confirm-revenue-as-sales", "question": "我这里说的营收就是销售额。请按销售额口径查最近 30 天。", "expected_case_id": "UQ-13", "expected_status": "completed", "expected_query_executed": true, "visualization": "kpi"}
   ]
 }

@@ -157,6 +157,14 @@ def load_expectations() -> dict[str, Any]:
                 "aov_contribution": paragraph.group(4),
             }
         },
+        "UQ-13": {
+            "values": {
+                "sales_amount": (
+                    f"{sum(int(row[2].replace('.', '')) for row in uq06_rows) // 100}."
+                    f"{sum(int(row[2].replace('.', '')) for row in uq06_rows) % 100:02d}"
+                )
+            }
+        },
     }
 
 

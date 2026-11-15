@@ -80,7 +80,15 @@ def _catalog_capability(kind: str):
 def validate_intent_draft(draft: IntentDraft) -> ValidatedIntent:
     """Validate a parsed draft and resolve only to a fixed server query template."""
     if draft.status == "clarification_required":
-        if draft.question_kind not in {"uq04", "uq05", "uq06", "uq09", "uq11", "uq12"}:
+        if draft.question_kind not in {
+            "uq04",
+            "uq05",
+            "uq06",
+            "uq09",
+            "uq11",
+            "uq12",
+            "uq13",
+        }:
             raise IntentValidationError("clarification_kind_not_supported")
         if not draft.clarification_prompt:
             raise IntentValidationError("clarification_prompt_required")

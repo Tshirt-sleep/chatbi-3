@@ -398,6 +398,45 @@ def test_uq09_clarifies_period_then_returns_noncausal_decomposition() -> None:
     assert "不代表因果" in result["answer_text"]
 
 
+def test_uq09_accepts_chinese_written_dates_in_clarification() -> None:
+    first, result = asyncio.run(
+        _ask_with_clarification(
+            "订单量涨了但流水没涨，是什么原因？",
+            "比较 2025年8月17日 至 2025年8月23日 和之前一周",
+        )
+    )
+
+    assert first["status"] == "clarification_required"
+    assert result["status"] == "completed"
+    assert result["interpretation"]["time_range"] == {
+        "start_inclusive": "2025-08-17",
+        "end_exclusive": "2025-08-24",
+    }
+    assert result["interpretation"]["comparison_range"] == {
+        "start_inclusive": "2025-08-10",
+        "end_exclusive": "2025-08-17",
+    }
+
+
+def test_uq13_recent_period_sales_total_matches_channel_golden_sum() -> None:
+    result = asyncio.run(_ask("我这里说的营收就是销售额。请按销售额口径查最近 30 天。"))
+
+    assert result["status"] == "completed"
+    assert result["debug"]["template_id"] == "uq13_period_sales_summary"
+    assert result["debug"]["query_executed"] is True
+    assert result["interpretation"]["metric_ids"] == ["sales_amount"]
+    assert result["values"][0]["value"] == "10302875.86"
+
+
+def test_explicit_revenue_mapping_without_query_is_acknowledged() -> None:
+    result = asyncio.run(_ask("我说的营收就是销售额，请解释系统的销售额口径。"))
+
+    assert result["status"] == "completed"
+    assert result["debug"]["query_executed"] is False
+    assert "按你澄清的口径" in result["answer_text"]
+    assert "退款不扣减" in result["answer_text"]
+
+
 def test_uq10_explains_sales_and_asks_about_income_without_querying() -> None:
     result = asyncio.run(_ask("“收入”和“销售额”在这里分别指什么？"))
 
