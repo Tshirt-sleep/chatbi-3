@@ -52,7 +52,7 @@ type DebugInfo = {
     duration_ms: number | null;
     result_row_count: number;
 };
-type Message = { question: string; response?: TurnResponse; error?: string };
+type Message = { question: string; requestQuestion?: string; dateContext?: string; response?: TurnResponse; error?: string };
 type FeedbackSummary = { total: number; counts: { rating: string; category: string; count: number }[] };
 
 const API_BASE = (import.meta.env.VITE_CHATBI_API_BASE_URL || "http://127.0.0.1:8000")
@@ -440,15 +440,15 @@ export default function App() {
     }
   }
 
-  async function submitQuestion(value = question, retryIndex: number | null = null) {
+  async function submitQuestion(value = question, retryIndex: number | null = null, displayQuestion?: string, dateContext?: string) {
     const text = value.trim();
     if (!text || !sessionId || busy) return;
     const targetIndex = retryIndex ?? messages.length;
     if (retryIndex === null) setQuestion("");
     setBusy(true);
     setMessages((current) => retryIndex === null
-      ? [...current, { question: text }]
-      : current.map((message, index) => index === targetIndex ? { question: text } : message));
+      ? [...current, { question: displayQuestion ?? text, requestQuestion: text, dateContext }]
+      : current.map((message, index) => index === targetIndex ? { ...message, question: displayQuestion ?? text, requestQuestion: text, dateContext } : message));
     try {
       let activeSessionId = sessionId;
       let response = await fetch(`${API}/sessions/${activeSessionId}/turns`, {
@@ -589,7 +589,7 @@ export default function App() {
         {messages.length > 0 && (
           <div className="conversation" aria-live="polite">
             <div className="conversation-toolbar"><span>本次对话 · {messages.length} 个问题</span><button type="button" onClick={resetConversation} disabled={busy} title="开始全新会话并清除当前待补充问题">↺ 重新开始</button></div>
-            {messages.map((message, index) => <div className="turn" key={`${index}-${message.question}`}><div className="user-turn"><div className="user-question"><p>{message.question}</p><span className="avatar user-avatar">我</span></div><div className="user-turn-actions"><button className="delete-turn" type="button" onClick={() => removeMessage(index)} disabled={busy} aria-label="删除这条提问" title="删除这条提问"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6m4-6v6M5.5 7l1 13h11l1-13M9 7V4h6v3" /></svg></button></div></div>{message.response ? <div className="assistant-answer"><span className="avatar bot-avatar">C</span><ResultCard response={message.response} mockUserId={mockUserId} sessionId={sessionId ?? ""} busy={busy} onClarificationSubmit={(clarification) => void submitQuestion(`${message.question} ${clarification}`)} /></div> : message.error ? <div className="assistant-answer"><span className="avatar bot-avatar">C</span><div className="request-error"><p>{message.error}</p><small>请检查服务状态或网络后重试，也可以修改问题再提交。</small><button type="button" onClick={() => void submitQuestion(message.question, index)} disabled={busy || health !== "ready"}>重试这条问题</button></div></div> : <div className="assistant-answer"><span className="avatar bot-avatar">C</span><p className="pending">正在按确定性规则查询<span className="loading-dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></p></div>}</div>)}
+            {messages.map((message, index) => <div className="turn" key={`${index}-${message.question}`}><div className="user-turn"><div className="user-question"><div className="user-message-copy"><p>{message.question}</p>{message.dateContext && <small className="user-date-context">{message.dateContext.startsWith("比较") ? message.dateContext : `日期范围：${message.dateContext}`}</small>}</div><span className="avatar user-avatar">我</span></div><div className="user-turn-actions"><button className="delete-turn" type="button" onClick={() => removeMessage(index)} disabled={busy} aria-label="删除这条提问" title="删除这条提问"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6m4-6v6M5.5 7l1 13h11l1-13M9 7V4h6v3" /></svg></button></div></div>{message.response ? <div className="assistant-answer"><span className="avatar bot-avatar">C</span><ResultCard response={message.response} mockUserId={mockUserId} sessionId={sessionId ?? ""} busy={busy} onClarificationSubmit={(clarification) => void submitQuestion(`${message.question} ${clarification}`, null, message.question, clarification)} /></div> : message.error ? <div className="assistant-answer"><span className="avatar bot-avatar">C</span><div className="request-error"><p>{message.error}</p><small>请检查服务状态或网络后重试，也可以修改问题再提交。</small><button type="button" onClick={() => void submitQuestion(message.requestQuestion ?? message.question, index, message.question, message.dateContext)} disabled={busy || health !== "ready"}>重试这条问题</button></div></div> : <div className="assistant-answer"><span className="avatar bot-avatar">C</span><p className="pending">正在按确定性规则查询<span className="loading-dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></p></div>}</div>)}
           </div>
         )}
         {messages.length > 0 && <form className="composer composer-followup" onSubmit={onSubmit}>

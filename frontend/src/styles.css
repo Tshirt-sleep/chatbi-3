@@ -119,9 +119,11 @@ h1 span { color: var(--purple); }
 .turn + .turn { margin-top: 25px; }
 .user-question, .assistant-answer { display: flex; align-items: flex-start; gap: 11px; }
 .user-question { justify-content: flex-end; margin-bottom: 13px; }
+.user-message-copy { display: grid; justify-items: end; gap: 5px; max-width: calc(100% - 43px); }
 .user-turn { display: flex; width: 100%; flex-direction: column; align-items: stretch; }
 .user-turn-actions { display: flex; justify-content: flex-end; width: 100%; margin: -7px 0 9px; }
-.user-question p { max-width: 75%; margin: 0; padding: 12px 16px; border: 1px solid #e3dfff; border-radius: 18px 6px 18px 18px; color: #373a60; background: #f0eeff; font-size: 13px; line-height: 1.65; }
+.user-question p { max-width: 100%; margin: 0; padding: 12px 16px; border: 1px solid #e3dfff; border-radius: 18px 6px 18px 18px; color: #373a60; background: #f0eeff; font-size: 13px; line-height: 1.65; }
+.user-date-context { max-width: 100%; padding: 7px 11px; border: 1px solid #e8e5f5; border-radius: 10px 4px 10px 10px; color: #6d658f; background: #fbfaff; font-size: 11px; line-height: 1.5; }
 .delete-turn { display: grid; width: 31px; height: 28px; place-items: center; padding: 5px; border: 1px solid transparent; border-radius: 8px; color: #85829a; background: transparent; cursor: pointer; transition: color .15s ease, border-color .15s ease, background .15s ease; }
 .delete-turn svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
 .delete-turn:hover:not(:disabled) { border-color: #efc9cc; color: #b84f5b; background: #fff5f5; }
@@ -265,7 +267,7 @@ footer { width: min(100%, 1600px); margin: 12px auto 0; color: #858ba3; font-siz
   .conversation { min-height: 360px; padding: 16px 11px; }
   .composer { padding: 14px 12px; }
   .answer-card { padding: 13px; }
-  .user-question p { max-width: 82%; }
+  .user-question p { max-width: 100%; }
   .chart-values { font-size: 7px; }
   .bar-row { grid-template-columns: minmax(64px, .9fr) minmax(45px, 1fr) minmax(78px, 1fr); gap: 6px; font-size: 9px; }
   .question-box { align-items: stretch; flex-direction: column; }

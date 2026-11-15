@@ -1532,6 +1532,62 @@ def _answer_for_kind(
                 "按当前期订单数计算的确定性数值分解项，不代表因果。",
             ),
         ]
+        previous_last_day = date.fromisoformat(previous.end_exclusive) - timedelta(days=1)
+        current_last_day = date.fromisoformat(current.end_exclusive) - timedelta(days=1)
+
+        def change_percent(current_value: Decimal, previous_value: Decimal) -> str:
+            if previous_value == 0:
+                return "无法计算"
+            percent = ((current_value - previous_value) * 100 / abs(previous_value)).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            )
+            return f"{percent:+.2f}%"
+
+        def direction(current_value: Decimal, previous_value: Decimal) -> str:
+            if current_value > previous_value:
+                return "上涨"
+            if current_value < previous_value:
+                return "下降"
+            return "持平"
+
+        def display_money(cents: int) -> str:
+            amount = Decimal(abs(cents)) / 100
+            sign = "-" if cents < 0 else ""
+            return f"{sign}¥{amount:,.2f}"
+
+        def display_aov(amount: Decimal) -> str:
+            rounded = int(amount.quantize(Decimal(1), rounding=ROUND_HALF_UP))
+            return display_money(rounded)
+
+        order_change = current_orders - previous_orders
+        order_change_text = (
+            f"{order_change:+d} 单"
+            f"（{change_percent(Decimal(current_orders), Decimal(previous_orders))}）"
+        )
+        sales_change_text = (
+            f"{display_money(delta)}"
+            f"（{change_percent(Decimal(current_cents), Decimal(previous_cents))}）"
+        )
+        if order_change > 0 and delta > 0:
+            premise_check = "订单数和销售额都上涨，与你描述的“订单量涨了但流水没涨”不一致。"
+        elif order_change > 0 and delta <= 0:
+            premise_check = "数据符合“订单量上涨但销售额没有上涨”的现象。"
+        else:
+            premise_check = (
+                f"订单数{direction(Decimal(current_orders), Decimal(previous_orders))}，"
+                f"销售额{direction(Decimal(current_cents), Decimal(previous_cents))}。"
+            )
+        answer_text = (
+            f"对比期（{previous.start_inclusive} 至 {previous_last_day.isoformat()}）："
+            f"{previous_orders} 单，销售额 {display_money(previous_cents)}，"
+            f"客单价 {display_aov(previous_aov)}；"
+            f"本期（{current.start_inclusive} 至 {current_last_day.isoformat()}）："
+            f"{current_orders} 单，销售额 {display_money(current_cents)}，"
+            f"客单价 {display_aov(current_aov)}。"
+            f"{premise_check} 订单数变化 {order_change_text}，销售额变化 {sales_change_text}。"
+            f"销售额变化可分解为订单数变化贡献 {display_money(count_contribution)} "
+            f"和客单价变化贡献 {display_money(aov_contribution)}；这是恒等数值分解，不代表因果关系。"
+        )
         interpretation = Interpretation(
             metric_ids=["order_count", "sales_amount", "average_order_value"],
             time_range=current,
@@ -1546,7 +1602,7 @@ def _answer_for_kind(
             request_id,
             turn_id,
             "completed",
-            "销售额变化可分解为订单数变化项和客单价变化项。这是恒等数值分解，不代表因果关系。",
+            answer_text,
             interpretation,
             definitions=list(definitions.values()),
             visualization=Visualization(type="table", data=result_rows),

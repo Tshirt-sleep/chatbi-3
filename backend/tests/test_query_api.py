@@ -440,7 +440,25 @@ def test_uq09_clarifies_period_then_returns_noncausal_decomposition() -> None:
     assert values["sales_amount_delta"] == "-31789.11"
     assert values["order_count_contribution"] == "160394.09"
     assert values["aov_contribution"] == "-192183.20"
+    assert "数据符合“订单量上涨但销售额没有上涨”的现象" in result["answer_text"]
     assert "不代表因果" in result["answer_text"]
+
+
+def test_uq09_corrects_premise_when_both_orders_and_sales_increase() -> None:
+    first, result = asyncio.run(
+        _ask_with_clarification(
+            "订单量涨了但流水没涨，是什么原因？",
+            "比较 2026-07-20 至 2026-07-26 和 2026-07-13 至 2026-07-19",
+        )
+    )
+
+    assert first["status"] == "clarification_required"
+    assert result["status"] == "completed"
+    assert "订单数和销售额都上涨" in result["answer_text"]
+    assert "不一致" in result["answer_text"]
+    assert "对比期（2026-07-13 至 2026-07-19）" in result["answer_text"]
+    assert "本期（2026-07-20 至 2026-07-26）" in result["answer_text"]
+    assert "¥98,448.37" in result["answer_text"]
 
 
 def test_uq09_accepts_chinese_written_dates_in_clarification() -> None:
