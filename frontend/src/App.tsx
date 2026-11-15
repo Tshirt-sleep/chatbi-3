@@ -59,7 +59,24 @@ const API_BASE = (import.meta.env.VITE_CHATBI_API_BASE_URL || "http://127.0.0.1:
   .replace(/\/$/, "");
 const API = `${API_BASE}/api/v1`;
 const PUBLIC_DEMO = import.meta.env.VITE_CHATBI_PUBLIC_DEMO === "true";
-const ECOMMERCE_EXAMPLES = ["昨天的销售额和订单数是多少？", "最近 7 天每天销售额趋势如何？", "最近 30 天各渠道销售额和订单数分别是多少？", "最近 30 天销售额最高的品类有哪些？", "最近一个完整月的销售额比上个月增长多少？", "最近 30 天退款率最高的商品有哪些？"];
+type QueryPerspective = "management" | "operations" | "analyst";
+const QUERY_PERSPECTIVES: Record<QueryPerspective, { label: string; focus: string; ecommerce: string[] }> = {
+  management: {
+    label: "管理者",
+    focus: "先看整体规模、关键变化和经营趋势。",
+    ecommerce: ["昨日流水和订单量分别是多少？", "最近完整月销售额比前一个月高多少？", "最近 7 天每天销售额趋势如何？", "最近 30 天各渠道销售额和订单数分别是多少？"],
+  },
+  operations: {
+    label: "运营/产品经理",
+    focus: "优先看商品、类目和渠道排行，定位可以继续跟进的分组。",
+    ecommerce: ["近 30 天 GMV 排名前十的 SKU 有哪些？", "过去 30 天按品类拆分销售额和订单数", "近 30 天哪些 SKU 的退款订单率最高？", "最近 30 天各渠道销售额和订单数分别是多少？"],
+  },
+  analyst: {
+    label: "数据分析师",
+    focus: "重点核对指标口径、统计周期、分组条件和明细表。",
+    ecommerce: ["近一周每天的 GMV 走势怎么样？", "最近完整月销售额比前一个月高多少？", "近 30 天各渠道平均订单金额分别多少？", "本周相较上周哪些类目的销售额下滑最多？"],
+  },
+};
 const SAAS_EXAMPLES = ["当前有多少活跃订阅？", "当前 MRR 是多少？", "最近 7 天新增订阅数"];
 const ECOMMERCE_DATA_START = "2025-08-01";
 const ECOMMERCE_DATA_END_EXCLUSIVE = "2026-08-01";
@@ -389,6 +406,7 @@ export default function App() {
   const [health, setHealth] = useState<HealthState>("checking");
   const [datasetId, setDatasetId] = useState<"ecommerce_mock_v1" | "saas_subscription_mock_v1">("ecommerce_mock_v1");
   const [mockUserId, setMockUserId] = useState<"admin" | "analyst" | "viewer">("analyst");
+  const [queryPerspective, setQueryPerspective] = useState<QueryPerspective>("management");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -426,7 +444,8 @@ export default function App() {
     return () => controller.abort();
   }, [datasetId, mockUserId, healthCheckKey]);
 
-  const examples = datasetId === "ecommerce_mock_v1" ? ECOMMERCE_EXAMPLES : SAAS_EXAMPLES;
+  const perspective = QUERY_PERSPECTIVES[queryPerspective];
+  const examples = datasetId === "ecommerce_mock_v1" ? perspective.ecommerce : SAAS_EXAMPLES;
   const topicLabel = datasetId === "ecommerce_mock_v1" ? "电商经营问数" : "SaaS 订阅经营问数";
 
   async function loadFeedbackSummary() {
@@ -553,6 +572,13 @@ export default function App() {
             <option value="viewer">只读者（Mock）</option>
           </select>
         </label>
+        <label className="dataset-picker perspective-picker">回答视角（演示）
+          <select value={queryPerspective} disabled={busy} onChange={(event) => setQueryPerspective(event.target.value as QueryPerspective)}>
+            <option value="management">管理者</option>
+            <option value="operations">运营/产品经理</option>
+            <option value="analyst">数据分析师</option>
+          </select>
+        </label>
         {!PUBLIC_DEMO && mockUserId === "admin" && <details className="feedback-summary" onToggle={(event) => {
           if ((event.currentTarget as HTMLDetailsElement).open) void loadFeedbackSummary();
         }}>
@@ -574,7 +600,7 @@ export default function App() {
           <div className="empty-state">
             <span className="empty-icon" aria-hidden="true">✳</span>
             <h2>从一个具体问题开始</h2>
-            <p>{datasetId === "ecommerce_mock_v1" ? "可从销售汇总、近 7 天趋势或近 30 天商品退款订单率开始。" : "当前支持活跃订阅快照、MRR 与新增订阅数；周期指标需要明确时间范围。"}</p>
+            <p className="perspective-focus"><strong>{perspective.label}视角：</strong>{perspective.focus} 仅调整示例与关注重点，不改变指标口径或查询结果。</p>
             <form className="composer composer-empty" onSubmit={onSubmit}>
               <label className="question-label" htmlFor="question-input">想看看什么经营数据？我来帮你查查</label>
               <div className="question-box"><textarea id="question-input" rows={1} maxLength={1000} placeholder={datasetId === "ecommerce_mock_v1" ? "例如：本月和上月的销售额差多少？" : "例如：按套餐看看活跃订阅数？"} value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={onKeyDown} disabled={busy || health !== "ready"} /><button type="submit" disabled={busy || health !== "ready" || !question.trim()}>{busy ? "查询中…" : "查询"}</button></div>

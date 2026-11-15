@@ -87,6 +87,8 @@ button:focus-visible, textarea:focus-visible, select:focus-visible, summary:focu
 h1 { margin: 13px 0 9px; color: var(--ink); font-size: clamp(29px, 4.3vw, 46px); font-weight: 780; letter-spacing: -.055em; line-height: 1.18; }
 h1 span { color: var(--purple); }
 .intro { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.75; }
+.perspective-focus { max-width: 720px; margin: 10px auto 0; padding: 9px 14px; border: 1px solid #e7e3fb; border-radius: 12px; color: #716b91; background: rgb(248 247 255 / 82%); font-size: 12px; line-height: 1.65; }
+.perspective-focus strong { color: #5c50a4; }
 .status-row { display: flex; align-items: center; justify-content: center; gap: 9px; margin-top: 17px; color: #767d99; font-size: 11px; }
 .status-row.is-unavailable { width: fit-content; margin-right: auto; margin-left: auto; padding: 5px 9px; border: 1px solid #f0e5e7; border-radius: 999px; color: #8b7075; background: #fffafb; }
 .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--orange); box-shadow: 0 0 0 4px #fff5eb; }
@@ -260,6 +262,7 @@ footer { width: min(100%, 1600px); margin: 12px auto 0; color: #858ba3; font-siz
   .workspace-heading:not(.is-collapsed) h1 { font-size: clamp(30px, 8vw, 40px); }
   .workspace-heading { max-height: 300px; }
   .intro { font-size: 12px; }
+  .perspective-focus { margin-top: 8px; padding: 8px 10px; font-size: 11px; }
   .empty-state { padding: 10px 15px 0; }
   .empty-state h2 { font-size: 18px; }
   .example-list { gap: 8px; margin-top: 14px; }
