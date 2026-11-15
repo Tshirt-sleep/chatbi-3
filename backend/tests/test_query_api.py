@@ -409,10 +409,12 @@ def test_uq09_accepts_chinese_written_dates_in_clarification() -> None:
     assert first["status"] == "clarification_required"
     assert result["status"] == "completed"
     assert result["interpretation"]["time_range"] == {
+        "timezone": "Asia/Shanghai",
         "start_inclusive": "2025-08-17",
         "end_exclusive": "2025-08-24",
     }
     assert result["interpretation"]["comparison_range"] == {
+        "timezone": "Asia/Shanghai",
         "start_inclusive": "2025-08-10",
         "end_exclusive": "2025-08-17",
     }
