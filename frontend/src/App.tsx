@@ -61,6 +61,21 @@ const API = `${API_BASE}/api/v1`;
 const PUBLIC_DEMO = import.meta.env.VITE_CHATBI_PUBLIC_DEMO === "true";
 const ECOMMERCE_EXAMPLES = ["昨天的销售额和订单数是多少？", "最近 7 天每天销售额趋势如何？", "最近 30 天各渠道销售额和订单数分别是多少？", "最近 30 天销售额最高的品类有哪些？", "最近一个完整月的销售额比上个月增长多少？", "最近 30 天退款率最高的商品有哪些？"];
 const SAAS_EXAMPLES = ["当前有多少活跃订阅？", "当前 MRR 是多少？", "最近 7 天新增订阅数"];
+const ECOMMERCE_DATA_START = "2025-08-01";
+const ECOMMERCE_DATA_END_EXCLUSIVE = "2026-08-01";
+
+function shiftDate(date: string, days: number) {
+  const value = new Date(`${date}T00:00:00Z`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
+}
+
+function latestCompleteWeek() {
+  const lastDataDay = shiftDate(ECOMMERCE_DATA_END_EXCLUSIVE, -1);
+  const daysSinceSunday = new Date(`${lastDataDay}T00:00:00Z`).getUTCDay();
+  const sunday = shiftDate(lastDataDay, -daysSinceSunday);
+  return { start: shiftDate(sunday, -6), end: sunday };
+}
 
 function TrendChart({ rows }: { rows: ResultRow[] }) {
   const points = useMemo(() => {
@@ -199,8 +214,11 @@ function BarChart({ rows }: { rows: ResultRow[] }) {
   </div>;
 }
 
-function ResultCard({ response, mockUserId, sessionId }: { response: TurnResponse; mockUserId: string; sessionId: string }) {
+function ResultCard({ response, mockUserId, sessionId, onClarificationSubmit, busy }: { response: TurnResponse; mockUserId: string; sessionId: string; onClarificationSubmit: (question: string) => void; busy: boolean }) {
   const range = response.interpretation.time_range;
+  const [periodStart, setPeriodStart] = useState(() => latestCompleteWeek().start);
+  const [periodEnd, setPeriodEnd] = useState(() => latestCompleteWeek().end);
+  const [periodError, setPeriodError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
   const [debugError, setDebugError] = useState<string | null>(null);
   const [feedbackStatus, setFeedbackStatus] = useState<string | null>(null);
@@ -232,6 +250,23 @@ function ResultCard({ response, mockUserId, sessionId }: { response: TurnRespons
       setFeedbackStatus(reason instanceof Error ? reason.message : "反馈保存失败");
     }
   }
+  const isPeriodComparisonClarification = response.status === "clarification_required"
+    && response.clarification_prompt?.includes("两个需要比较的完整日期区间");
+  function submitPeriod(start: string, end: string) {
+    if (!start || !end || start > end) {
+      setPeriodError("请选择有效的开始和结束日期。");
+      return;
+    }
+    const days = Math.round((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86_400_000) + 1;
+    const previousStart = shiftDate(start, -days);
+    if (days > 366 || previousStart < ECOMMERCE_DATA_START || end >= ECOMMERCE_DATA_END_EXCLUSIVE) {
+      setPeriodError(`本次和对比周期都需要落在数据范围 ${ECOMMERCE_DATA_START} 至 ${shiftDate(ECOMMERCE_DATA_END_EXCLUSIVE, -1)} 内，请缩短或调整日期。`);
+      return;
+    }
+    setPeriodError(null);
+    const previousEnd = shiftDate(start, -1);
+    onClarificationSubmit(`比较 ${start} 至 ${end} 和 ${previousStart} 至 ${previousEnd}`);
+  }
   return (
     <article className="answer-card">
       <p className={`answer-copy status-${response.status}`}>{response.answer_text}</p>
@@ -251,6 +286,20 @@ function ResultCard({ response, mockUserId, sessionId }: { response: TurnRespons
       {response.visualization.type === "bar" && <BarChart rows={response.visualization.data} />}
       {["bar", "table"].includes(response.visualization.type) && <ResultTable rows={response.visualization.data} />}
       {response.clarification_prompt && <p className="clarification-prompt">{response.clarification_prompt}</p>}
+      {isPeriodComparisonClarification && <section className="period-chooser" aria-label="选择比较日期">
+        <p>不确定选哪周？可直接用最近一个完整周，或自行选择日期；系统会自动比较紧邻的前一段同长度周期。</p>
+        <button type="button" className="period-preset" disabled={busy} onClick={() => {
+          const week = latestCompleteWeek();
+          submitPeriod(week.start, week.end);
+        }}>比较最近完整周（周一至周日：{latestCompleteWeek().start} 至 {latestCompleteWeek().end}）</button>
+        <div className="period-date-fields">
+          <label>开始日期<input type="date" min={ECOMMERCE_DATA_START} max={shiftDate(ECOMMERCE_DATA_END_EXCLUSIVE, -1)} value={periodStart} disabled={busy} onChange={(event) => setPeriodStart(event.target.value)} /></label>
+          <label>结束日期<input type="date" min={ECOMMERCE_DATA_START} max={shiftDate(ECOMMERCE_DATA_END_EXCLUSIVE, -1)} value={periodEnd} disabled={busy} onChange={(event) => setPeriodEnd(event.target.value)} /></label>
+          <button type="button" disabled={busy} onClick={() => submitPeriod(periodStart, periodEnd)}>{busy ? "查询中…" : "比较所选周期"}</button>
+        </div>
+        <small>Mock 数据范围：{ECOMMERCE_DATA_START} 至 {shiftDate(ECOMMERCE_DATA_END_EXCLUSIVE, -1)}；自选周期需与前一周期都在范围内。</small>
+        {periodError && <small className="period-error" role="alert">{periodError}</small>}
+      </section>}
       {response.suggested_terms.length > 0 && <p className="suggestions">可尝试：{response.suggested_terms.join(" · ")}</p>}
       {response.status === "completed" && mockUserId !== "viewer" && <section className="feedback-controls" aria-label="答案反馈">
         <span>这条回答有帮助吗？</span>
@@ -407,6 +456,8 @@ export default function App() {
     setMessages([]);
     setQuestion("");
     setPendingClarificationId(null);
+    setSessionId(null);
+    setHealth("checking");
     setHealthCheckKey((current) => current + 1);
   }
 
@@ -486,8 +537,8 @@ export default function App() {
         {messages.length > 0 && <div className="data-notice" role="note"><strong>Mock 演示数据</strong><span>快照日 2026-08-01（Asia/Shanghai）；数据日期覆盖 2025-08-01 至 2026-07-31，不代表真实经营结果。</span></div>}
         {messages.length > 0 && (
           <div className="conversation" aria-live="polite">
-            <div className="conversation-toolbar"><span>本次对话 · {messages.length} 个问题</span><button type="button" onClick={resetConversation} disabled={busy} title="仅清空当前页面显示，不会删除后台记录">↺ 重新开始</button></div>
-            {messages.map((message, index) => <div className="turn" key={`${index}-${message.question}`}><div className="user-turn"><div className="user-question"><p>{message.question}</p><span className="avatar user-avatar">我</span></div><div className="user-turn-actions"><button className="delete-turn" type="button" onClick={() => removeMessage(index)} disabled={busy} aria-label="删除这条提问" title="删除这条提问"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6m4-6v6M5.5 7l1 13h11l1-13M9 7V4h6v3" /></svg></button></div></div>{message.response ? <div className="assistant-answer"><span className="avatar bot-avatar">C</span><ResultCard response={message.response} mockUserId={mockUserId} sessionId={sessionId ?? ""} /></div> : message.error ? <div className="assistant-answer"><span className="avatar bot-avatar">C</span><div className="request-error"><p>{message.error}</p><small>请检查服务状态或网络后重试，也可以修改问题再提交。</small><button type="button" onClick={() => void submitQuestion(message.question, index)} disabled={busy || health !== "ready"}>重试这条问题</button></div></div> : <div className="assistant-answer"><span className="avatar bot-avatar">C</span><p className="pending">正在按确定性规则查询<span className="loading-dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></p></div>}</div>)}
+            <div className="conversation-toolbar"><span>本次对话 · {messages.length} 个问题</span><button type="button" onClick={resetConversation} disabled={busy} title="开始全新会话并清除当前待补充问题">↺ 重新开始</button></div>
+            {messages.map((message, index) => <div className="turn" key={`${index}-${message.question}`}><div className="user-turn"><div className="user-question"><p>{message.question}</p><span className="avatar user-avatar">我</span></div><div className="user-turn-actions"><button className="delete-turn" type="button" onClick={() => removeMessage(index)} disabled={busy} aria-label="删除这条提问" title="删除这条提问"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6m4-6v6M5.5 7l1 13h11l1-13M9 7V4h6v3" /></svg></button></div></div>{message.response ? <div className="assistant-answer"><span className="avatar bot-avatar">C</span><ResultCard response={message.response} mockUserId={mockUserId} sessionId={sessionId ?? ""} busy={busy} onClarificationSubmit={(clarification) => void submitQuestion(clarification)} /></div> : message.error ? <div className="assistant-answer"><span className="avatar bot-avatar">C</span><div className="request-error"><p>{message.error}</p><small>请检查服务状态或网络后重试，也可以修改问题再提交。</small><button type="button" onClick={() => void submitQuestion(message.question, index)} disabled={busy || health !== "ready"}>重试这条问题</button></div></div> : <div className="assistant-answer"><span className="avatar bot-avatar">C</span><p className="pending">正在按确定性规则查询<span className="loading-dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></p></div>}</div>)}
           </div>
         )}
         {messages.length > 0 && <form className="composer composer-followup" onSubmit={onSubmit}>

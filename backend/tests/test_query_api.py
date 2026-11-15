@@ -328,6 +328,38 @@ def test_new_question_replaces_unanswered_clarification() -> None:
     assert result["debug"]["template_id"] == "uq05_category_summary"
 
 
+def test_new_session_does_not_inherit_unanswered_clarification() -> None:
+    async def ask_after_starting_new_session() -> tuple[dict, dict]:
+        async with AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://testserver",
+            headers={"X-Mock-User": "analyst"},
+        ) as client:
+            old_session = await client.post(
+                "/api/v1/sessions", json={"dataset_id": "ecommerce_mock_v1"}
+            )
+            old_session_id = old_session.json()["session_id"]
+            clarification_response = await client.post(
+                f"/api/v1/sessions/{old_session_id}/turns",
+                json={"question": "订单量涨了但流水没涨，是什么原因？"},
+            )
+            new_session = await client.post(
+                "/api/v1/sessions", json={"dataset_id": "ecommerce_mock_v1"}
+            )
+            new_session_id = new_session.json()["session_id"]
+            fresh_question = await client.post(
+                f"/api/v1/sessions/{new_session_id}/turns",
+                json={"question": "昨天的销售额是多少？"},
+            )
+            return clarification_response.json(), await _add_debug(client, fresh_question.json())
+
+    first, result = asyncio.run(ask_after_starting_new_session())
+    assert first["status"] == "clarification_required"
+    assert result["status"] == "completed"
+    assert result["clarification_id"] is None
+    assert result["debug"]["template_id"] == "uq01_daily_summary"
+
+
 def test_uq06_channel_aov_matches_golden_result() -> None:
     first, result = asyncio.run(_ask_with_clarification("各渠道的客单价是多少？", "最近 30 天"))
 
