@@ -281,6 +281,19 @@ def test_uq04_accepts_natural_language_seven_day_ranges() -> None:
         assert result["interpretation"]["time_range"]["start_inclusive"] == expected_start
 
 
+def test_uq04_accepts_picker_selected_explicit_date_range() -> None:
+    first, result = asyncio.run(
+        _ask_with_clarification(
+            "销售额最高的前 10 个商品是哪些？", "2025-08-17 至 2025-08-23"
+        )
+    )
+
+    assert first["status"] == "clarification_required"
+    assert result["status"] == "completed"
+    assert result["interpretation"]["time_range"]["start_inclusive"] == "2025-08-17"
+    assert result["interpretation"]["time_range"]["end_exclusive"] == "2025-08-24"
+
+
 def test_uq05_category_group_uses_distinct_orders_within_category() -> None:
     first, result = asyncio.run(
         _ask_with_clarification("各类目的订单数和销售额分别是多少？", "最近 30 天")

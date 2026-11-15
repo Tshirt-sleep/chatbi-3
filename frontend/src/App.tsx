@@ -77,6 +77,12 @@ function latestCompleteWeek() {
   return { start: shiftDate(sunday, -6), end: sunday };
 }
 
+function latestCompleteMonth() {
+  const currentMonthStart = `${ECOMMERCE_DATA_END_EXCLUSIVE.slice(0, 7)}-01`;
+  const end = shiftDate(currentMonthStart, -1);
+  return { start: `${end.slice(0, 7)}-01`, end };
+}
+
 function TrendChart({ rows }: { rows: ResultRow[] }) {
   const points = useMemo(() => {
     const metric = Object.keys(rows[0]?.values ?? {})[0] ?? "sales_amount";
@@ -257,6 +263,9 @@ function ResultCard({ response, mockUserId, sessionId, onClarificationSubmit, bu
       )
       || response.clarification_prompt?.includes("两个需要比较的完整日期区间") === true
     );
+  const isDateRangeClarification = response.status === "clarification_required"
+    && !isPeriodComparisonClarification
+    && /时间范围|日期范围|自然日时间范围/.test(response.clarification_prompt ?? "");
   function submitPeriod(start: string, end: string) {
     if (!start || !end || start > end) {
       setPeriodError("请选择有效的开始和结束日期。");
@@ -271,6 +280,19 @@ function ResultCard({ response, mockUserId, sessionId, onClarificationSubmit, bu
     setPeriodError(null);
     const previousEnd = shiftDate(start, -1);
     onClarificationSubmit(`比较 ${start} 至 ${end} 和 ${previousStart} 至 ${previousEnd}`);
+  }
+  function submitDateRange(start: string, end: string) {
+    if (!start || !end || start > end) {
+      setPeriodError("请选择有效的开始和结束日期。");
+      return;
+    }
+    const days = Math.round((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86_400_000) + 1;
+    if (days > 366 || start < ECOMMERCE_DATA_START || end >= ECOMMERCE_DATA_END_EXCLUSIVE) {
+      setPeriodError(`日期需在 Mock 数据范围 ${ECOMMERCE_DATA_START} 至 ${shiftDate(ECOMMERCE_DATA_END_EXCLUSIVE, -1)} 内，且不超过 366 天。`);
+      return;
+    }
+    setPeriodError(null);
+    onClarificationSubmit(`${start} 至 ${end}`);
   }
   return (
     <article className="answer-card">
@@ -303,6 +325,30 @@ function ResultCard({ response, mockUserId, sessionId, onClarificationSubmit, bu
           <button type="button" disabled={busy} onClick={() => submitPeriod(periodStart, periodEnd)}>{busy ? "查询中…" : "比较所选周期"}</button>
         </div>
         <small>Mock 数据范围：{ECOMMERCE_DATA_START} 至 {shiftDate(ECOMMERCE_DATA_END_EXCLUSIVE, -1)}；自选周期需与前一周期都在范围内。</small>
+        {periodError && <small className="period-error" role="alert">{periodError}</small>}
+      </section>}
+      {isDateRangeClarification && <section className="period-chooser" aria-label="选择查询日期">
+        <p>可以点选常用周期，也可以手动选起止日期（结束日包含在统计范围内）。</p>
+        <div className="period-presets">
+          {(() => {
+            const lastDay = shiftDate(ECOMMERCE_DATA_END_EXCLUSIVE, -1);
+            const completeWeek = latestCompleteWeek();
+            const completeMonth = latestCompleteMonth();
+            return [
+              { label: "昨天", start: lastDay, end: lastDay },
+              { label: "最近 7 天", start: shiftDate(ECOMMERCE_DATA_END_EXCLUSIVE, -7), end: lastDay },
+              { label: "最近 30 天", start: shiftDate(ECOMMERCE_DATA_END_EXCLUSIVE, -30), end: lastDay },
+              { label: "最近完整周", ...completeWeek },
+              { label: "最近完整月", ...completeMonth },
+            ].map((preset) => <button key={preset.label} type="button" disabled={busy} onClick={() => submitDateRange(preset.start, preset.end)}>{preset.label}{preset.label === "最近完整周" ? `（${preset.start} 至 ${preset.end}）` : ""}</button>);
+          })()}
+        </div>
+        <div className="period-date-fields">
+          <label>开始日期<input type="date" min={ECOMMERCE_DATA_START} max={shiftDate(ECOMMERCE_DATA_END_EXCLUSIVE, -1)} value={periodStart} disabled={busy} onChange={(event) => setPeriodStart(event.target.value)} /></label>
+          <label>结束日期<input type="date" min={ECOMMERCE_DATA_START} max={shiftDate(ECOMMERCE_DATA_END_EXCLUSIVE, -1)} value={periodEnd} disabled={busy} onChange={(event) => setPeriodEnd(event.target.value)} /></label>
+          <button type="button" disabled={busy} onClick={() => submitDateRange(periodStart, periodEnd)}>{busy ? "查询中…" : "查询所选日期"}</button>
+        </div>
+        <small>Mock 数据范围：{ECOMMERCE_DATA_START} 至 {shiftDate(ECOMMERCE_DATA_END_EXCLUSIVE, -1)}。</small>
         {periodError && <small className="period-error" role="alert">{periodError}</small>}
       </section>}
       {response.suggested_terms.length > 0 && <p className="suggestions">可尝试：{response.suggested_terms.join(" · ")}</p>}
@@ -543,7 +589,7 @@ export default function App() {
         {messages.length > 0 && (
           <div className="conversation" aria-live="polite">
             <div className="conversation-toolbar"><span>本次对话 · {messages.length} 个问题</span><button type="button" onClick={resetConversation} disabled={busy} title="开始全新会话并清除当前待补充问题">↺ 重新开始</button></div>
-            {messages.map((message, index) => <div className="turn" key={`${index}-${message.question}`}><div className="user-turn"><div className="user-question"><p>{message.question}</p><span className="avatar user-avatar">我</span></div><div className="user-turn-actions"><button className="delete-turn" type="button" onClick={() => removeMessage(index)} disabled={busy} aria-label="删除这条提问" title="删除这条提问"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6m4-6v6M5.5 7l1 13h11l1-13M9 7V4h6v3" /></svg></button></div></div>{message.response ? <div className="assistant-answer"><span className="avatar bot-avatar">C</span><ResultCard response={message.response} mockUserId={mockUserId} sessionId={sessionId ?? ""} busy={busy} onClarificationSubmit={(clarification) => void submitQuestion(clarification)} /></div> : message.error ? <div className="assistant-answer"><span className="avatar bot-avatar">C</span><div className="request-error"><p>{message.error}</p><small>请检查服务状态或网络后重试，也可以修改问题再提交。</small><button type="button" onClick={() => void submitQuestion(message.question, index)} disabled={busy || health !== "ready"}>重试这条问题</button></div></div> : <div className="assistant-answer"><span className="avatar bot-avatar">C</span><p className="pending">正在按确定性规则查询<span className="loading-dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></p></div>}</div>)}
+            {messages.map((message, index) => <div className="turn" key={`${index}-${message.question}`}><div className="user-turn"><div className="user-question"><p>{message.question}</p><span className="avatar user-avatar">我</span></div><div className="user-turn-actions"><button className="delete-turn" type="button" onClick={() => removeMessage(index)} disabled={busy} aria-label="删除这条提问" title="删除这条提问"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6m4-6v6M5.5 7l1 13h11l1-13M9 7V4h6v3" /></svg></button></div></div>{message.response ? <div className="assistant-answer"><span className="avatar bot-avatar">C</span><ResultCard response={message.response} mockUserId={mockUserId} sessionId={sessionId ?? ""} busy={busy} onClarificationSubmit={(clarification) => void submitQuestion(`${message.question} ${clarification}`)} /></div> : message.error ? <div className="assistant-answer"><span className="avatar bot-avatar">C</span><div className="request-error"><p>{message.error}</p><small>请检查服务状态或网络后重试，也可以修改问题再提交。</small><button type="button" onClick={() => void submitQuestion(message.question, index)} disabled={busy || health !== "ready"}>重试这条问题</button></div></div> : <div className="assistant-answer"><span className="avatar bot-avatar">C</span><p className="pending">正在按确定性规则查询<span className="loading-dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span></p></div>}</div>)}
           </div>
         )}
         {messages.length > 0 && <form className="composer composer-followup" onSubmit={onSubmit}>

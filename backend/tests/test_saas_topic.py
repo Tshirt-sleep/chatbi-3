@@ -8,7 +8,7 @@ from backend.chatbi.saas_catalog import (
     MANIFEST_PATH,
     load_saas_catalog,
 )
-from backend.chatbi.saas_query_service import _execute
+from backend.chatbi.saas_query_service import _execute, _time_range
 from harness.run_saas_eval import run
 from sqlalchemy import create_engine, text
 
@@ -38,6 +38,18 @@ def test_saas_catalog_rejects_manifest_for_another_dataset(tmp_path: Path) -> No
 
     with pytest.raises(ValueError, match="dataset_id mismatch"):
         load_saas_catalog(CATALOG_PATH, manifest_path)
+
+
+def test_saas_date_parser_accepts_picker_range_and_recent_30_days() -> None:
+    selected = _time_range("2025-08-17 至 2025-08-23")
+    recent = _time_range("最近 30 天")
+
+    assert selected is not None
+    assert selected.start_inclusive == "2025-08-17"
+    assert selected.end_exclusive == "2025-08-24"
+    assert recent is not None
+    assert recent.start_inclusive == "2026-07-02"
+    assert recent.end_exclusive == "2026-08-01"
 
 
 def test_saas_api_route_and_sql_golden_acceptance() -> None:

@@ -1779,7 +1779,7 @@ def answer_question(
             )
         kind = pending.question_kind
         if kind in {"uq04", "uq05", "uq06", "uq07", "uq11", "uq12"}:
-            date_range = _parse_recent_range(normalized)
+            date_range = _date_range_from_question(normalized)
             if date_range is None:
                 if intent_provider is not None:
                     draft = _parse_with_model(intent_provider, question, request_id, kind)

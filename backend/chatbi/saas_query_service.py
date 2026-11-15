@@ -289,8 +289,14 @@ def _validated_model_plan(
 
 
 def _time_range(question: str) -> TimeRange | None:
-    if "最近7天" in question or "近7天" in question:
-        return _range(AS_OF - timedelta(days=7), AS_OF)
+    recent_days = re.search(r"(?:最近|近|过去)\s*(\d{1,3})\s*天", question)
+    if recent_days:
+        days = int(recent_days.group(1))
+        if 1 <= days <= 366:
+            start = AS_OF - timedelta(days=days)
+            if ACTIVE_SAAS_CATALOG.start_date <= start:
+                return _range(start, AS_OF)
+        return None
     if "昨天" in question:
         return _range(AS_OF - timedelta(days=1), AS_OF)
     match = re.search(
