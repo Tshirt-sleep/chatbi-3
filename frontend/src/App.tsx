@@ -251,7 +251,12 @@ function ResultCard({ response, mockUserId, sessionId, onClarificationSubmit, bu
     }
   }
   const isPeriodComparisonClarification = response.status === "clarification_required"
-    && response.clarification_prompt?.includes("两个需要比较的完整日期区间");
+    && (
+      ["order_count", "sales_amount", "average_order_value"].every((metricId) =>
+        response.interpretation.metric_ids.includes(metricId),
+      )
+      || response.clarification_prompt?.includes("两个需要比较的完整日期区间") === true
+    );
   function submitPeriod(start: string, end: string) {
     if (!start || !end || start > end) {
       setPeriodError("请选择有效的开始和结束日期。");
