@@ -5,6 +5,7 @@ publish = "dist"
 
 [build.environment]
 VITE_CHATBI_PUBLIC_DEMO = "true"
+VITE_CHATBI_API_BASE_URL = "https://chatbi-api-avjp.onrender.com"
 NODE_VERSION = "24.16.0"
 
 [[redirects]]
