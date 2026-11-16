@@ -37,8 +37,16 @@ from .query_service import (
 from .release import APP_VERSION, release_fields
 from .saas_catalog import ACTIVE_SAAS_CATALOG
 from .saas_catalog import DATASET_ID as SAAS_DATASET_ID
+from .saas_catalog import Dimension as SaaSDimension
+from .saas_catalog import Metric as SaaSMetric
+from .saas_catalog import Term as SaaSTerm
 from .saas_query_service import answer_saas_question
-from .semantic_catalog import ACTIVE_CATALOG
+from .semantic_catalog import (
+    ACTIVE_CATALOG,
+    DimensionDefinition,
+    MetricDefinition,
+    TermDefinition,
+)
 
 PUBLIC_DEMO = os.getenv("CHATBI_PUBLIC_DEMO", "false").lower() == "true"
 app = FastAPI(
@@ -51,7 +59,9 @@ app = FastAPI(
 )
 cors_origins = [
     origin.strip()
-    for origin in os.getenv("CHATBI_CORS_ORIGINS", "http://127.0.0.1:5173").split(",")
+    for origin in os.getenv(
+        "CHATBI_CORS_ORIGINS", "http://127.0.0.1:5173,http://localhost:5173"
+    ).split(",")
     if origin.strip()
 ]
 app.add_middleware(
@@ -200,6 +210,72 @@ def ready() -> dict[str, str] | JSONResponse:
         "status": "ready",
         "dependency": "database_and_mock_data",
         **release_fields(),
+    }
+
+
+@app.get("/api/v1/semantics", tags=["semantics"])
+def semantic_guide(dataset_id: str, request: Request) -> dict[str, object]:
+    """Expose the active, user-facing metric glossary for the selected Mock dataset."""
+    identity = resolve_mock_identity(request)
+    require_dataset_scope(identity, dataset_id)
+    dimensions: dict[str, DimensionDefinition | SaaSDimension]
+    metrics_source: tuple[MetricDefinition, ...] | tuple[SaaSMetric, ...]
+    terms_source: tuple[TermDefinition, ...] | tuple[SaaSTerm, ...]
+    if dataset_id == DATASET_ID:
+        dimensions = {item.id: item for item in ACTIVE_CATALOG.catalog.dimensions}
+        metrics_source = ACTIVE_CATALOG.catalog.metrics
+        terms_source = ACTIVE_CATALOG.catalog.terms
+        catalog_id = ACTIVE_CATALOG.catalog.dataset_id
+        catalog_version = ACTIVE_CATALOG.catalog.version
+        catalog_timezone = ACTIVE_CATALOG.catalog.timezone
+        start_date = ACTIVE_CATALOG.dataset_start_date
+        end_exclusive = ACTIVE_CATALOG.dataset_end_exclusive
+        as_of_date = ACTIVE_CATALOG.as_of_date
+    elif dataset_id == SAAS_DATASET_ID:
+        dimensions = {item.id: item for item in ACTIVE_SAAS_CATALOG.catalog.dimensions}
+        metrics_source = ACTIVE_SAAS_CATALOG.catalog.metrics
+        terms_source = ACTIVE_SAAS_CATALOG.catalog.terms
+        catalog_id = ACTIVE_SAAS_CATALOG.catalog.dataset_id
+        catalog_version = ACTIVE_SAAS_CATALOG.catalog.version
+        catalog_timezone = ACTIVE_SAAS_CATALOG.catalog.timezone
+        start_date = ACTIVE_SAAS_CATALOG.start_date
+        end_exclusive = ACTIVE_SAAS_CATALOG.end_date
+        as_of_date = ACTIVE_SAAS_CATALOG.as_of_date
+    else:
+        raise HTTPException(status_code=404, detail="Dataset not found.")
+
+    metrics = [
+        {
+            "id": metric.id,
+            "label": metric.label,
+            "definition": metric.definition,
+            "unit": metric.unit,
+            "aliases": list(metric.aliases),
+            "dimensions": [
+                dimensions[dimension_id].label
+                for dimension_id in metric.allowed_dimension_ids
+                if dimension_id in dimensions and dimensions[dimension_id].status == "active"
+            ],
+        }
+        for metric in metrics_source
+        if metric.status == "active"
+    ]
+    ambiguous_terms = [
+        {"text": term.text, "note": term.note}
+        for term in terms_source
+        if term.resolution == "ambiguous"
+    ]
+    return {
+        "dataset_id": catalog_id,
+        "version": catalog_version,
+        "timezone": catalog_timezone,
+        "date_window": {
+            "start_inclusive": start_date.isoformat(),
+            "end_exclusive": end_exclusive.isoformat(),
+            "as_of_date": as_of_date.isoformat(),
+        },
+        "metrics": metrics,
+        "ambiguous_terms": ambiguous_terms,
     }
 
 
