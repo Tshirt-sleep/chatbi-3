@@ -1,11 +1,11 @@
 {
   "schema_version": "1",
   "catalog_id": "ecommerce_mock_semantics",
-  "version": "2.0.0",
+  "version": "4.0.0",
   "status": "active",
   "dataset_id": "ecommerce_mock_v1",
   "timezone": "Asia/Shanghai",
-  "change_note": "新增 UQ-13 指定区间销售额汇总；用户明确确认歧义术语为销售额后按销售额口径处理",
+  "change_note": "为渠道销售额与有效订单数能力分配独立查询模板标识，避免与渠道客单价能力混淆；保留客户终身价值和退款金额暂不支持规则",
   "metrics": [
     {
       "id": "sales_amount",
@@ -76,6 +76,16 @@
       ],
       "implementation_id": "refund_rate",
       "status": "active"
+    },
+    {
+      "id": "refund_amount",
+      "label": "退款金额",
+      "definition": "退款金额是退款事件的金额合计；当前首版暂不支持查询，不得与退款订单率混同。",
+      "unit": "CNY",
+      "aliases": [],
+      "allowed_dimension_ids": [],
+      "implementation_id": null,
+      "status": "unsupported"
     }
   ],
   "dimensions": [
@@ -260,6 +270,30 @@
       "target_id": "refund_rate",
       "candidate_ids": [],
       "note": "按已完成退款的订单数/该商品有效订单数计算；按支付日期筛选 cohort。"
+    },
+    {
+      "id": "refund_amount_term",
+      "text": "退款金额",
+      "resolution": "unsupported",
+      "target_id": "refund_amount",
+      "candidate_ids": [],
+      "note": "首版暂不支持退款金额查询；不得映射为销售额或退款订单率，且不执行查询。"
+    },
+    {
+      "id": "customer_lifetime_value_unsupported",
+      "text": "客户终身价值",
+      "resolution": "unsupported",
+      "target_id": null,
+      "candidate_ids": [],
+      "note": "该指标没有经审核的计算口径；不得映射为客单价或其他指标，且不执行查询。"
+    },
+    {
+      "id": "customer_lifecycle_value_unsupported",
+      "text": "客户生命周期价值",
+      "resolution": "unsupported",
+      "target_id": null,
+      "candidate_ids": [],
+      "note": "该指标没有经审核的计算口径；不得映射为客单价或其他指标，且不执行查询。"
     }
   ],
   "policies": {
@@ -408,7 +442,7 @@
     },
     {
       "id": "uq12",
-      "description": "按渠道汇总销售额和去重有效订单数",
+      "description": "按渠道汇总销售额和去重有效订单数。“各销售渠道卖得怎么样”“各销售渠道表现如何”“渠道成交表现”“销售和订单表现”等均指这两项指标并按渠道分组；“买得怎么样”或购买行为问法含义不明确，应澄清，不得自动套用本能力。最近一个月按数据集 as_of_date 向前滚动 30 天，使用 Asia/Shanghai 半开区间 [as_of_date−30天, as_of_date)。",
       "requires_explicit_time_range": true,
       "requires_comparison_period": false,
       "metric_ids": [
@@ -418,18 +452,19 @@
       "dimension_ids": [
         "channel"
       ],
-      "template_id": "uq06_channel_aov"
+      "template_id": "uq12_channel_sales_orders"
     },
     {
       "id": "uq13",
-      "description": "按用户明确给定的自然日范围汇总有效订单销售额；不扣退款",
+      "description": "按用户明确给定的自然日范围汇总有效订单销售额和/或去重订单数；不扣退款",
       "requires_explicit_time_range": true,
       "requires_comparison_period": false,
       "metric_ids": [
-        "sales_amount"
+        "sales_amount",
+        "order_count"
       ],
       "dimension_ids": [],
-      "template_id": "uq13_period_sales_summary"
+      "template_id": "uq13_period_summary"
     }
   ]
 }

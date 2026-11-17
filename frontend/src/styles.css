@@ -170,9 +170,6 @@ h1 span { color: var(--purple); }
 .user-avatar { order: 2; color: #fff; background: #8779e2; }
 .bot-avatar { color: #fff; background: var(--purple); box-shadow: 0 4px 12px rgb(104 88 216 / 20%); }
 .answer-card { flex: 1; min-width: 0; padding: 17px 19px; border: 1px solid #e8e6f2; border-radius: 6px 18px 18px; background: #fff; box-shadow: 0 7px 20px rgb(56 55 102 / 4%); animation: answer-arrive .34s ease-out both; }
-.answer-perspective { display: grid; gap: 4px; margin-bottom: 13px; padding: 10px 13px; border: 1px solid #e7e3fb; border-radius: 11px; color: #716b91; background: #faf9ff; font-size: 11px; line-height: 1.55; }
-.answer-perspective strong { color: #5c50a4; font-size: 11px; }
-.answer-perspective small { color: #9290a7; font-size: 10px; }
 .role-reading { display: grid; gap: 4px; margin: 0 0 14px; padding: 10px 13px; border-left: 3px solid #a49aed; border-radius: 0 10px 10px 0; color: #747b96; background: #f8f7ff; font-size: 11px; line-height: 1.6; }
 .role-reading strong { color: #5b51a0; font-size: 11px; }
 .answer-copy { margin: 0 0 14px; color: #414661; font-size: 13px; line-height: 1.75; }

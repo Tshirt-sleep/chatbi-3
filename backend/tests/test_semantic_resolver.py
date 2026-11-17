@@ -20,6 +20,8 @@ def test_ambiguous_and_unsupported_terms_are_directory_driven() -> None:
     assert _matched_catalog_term("最近30天退款率", "metric").target_id == "refund_rate"
     assert _classify("最近30天退款率最高的商品有哪些") == "uq07"
     assert _classify("最近30天退款率是多少") == "unsupported"
+    assert _matched_catalog_term("最近30天退款金额", "unsupported").target_id == "refund_amount"
+    assert _classify("最近30天退款金额是多少") == "unsupported_term"
 
 
 def test_inactive_dimension_is_not_silently_ignored() -> None:
@@ -42,7 +44,8 @@ def test_common_natural_wording_routes_to_allowlisted_intents() -> None:
         ("营收就是销售额，最近30天销售额是多少", "uq13"),
         ("我说的营收就是销售额，请解释系统的销售额口径", "revenue_definition"),
         ("最近30天销售额是多少", "uq13"),
-        ("最近30天退款金额是多少", None),
+        ("最近30天订单数是多少", "uq13"),
+        ("最近30天退款金额是多少", "unsupported_term"),
     )
 
     for question, expected in cases:

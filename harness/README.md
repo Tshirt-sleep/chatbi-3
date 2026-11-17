@@ -10,8 +10,9 @@ Harness 负责按固定数据、语义版本和黄金预期运行可重复的验
 - 核对独立空日夹具 8 月 9–11 日的订单数及金额。
 - 输出 JSON 报告，记录数据集 ID/版本、语义目录 ID/版本、问题集 ID、检查准确率和失败分类；成功查询的 Evidence 必须与当前运行目录版本一致。
 - 可与既有报告做结构化比较；报告不写生成时间，结果相同则内容稳定。
-- P7 意图黄金集最多 7 个合成问题；只有显式启用 DeepSeek 且进程环境配置 API Key 时才发请求。报告只记用例 ID、意图字段是否匹配、模型/提示/数据版本、耗时和 Token 数，不记问题原文或模型输出。
-- 报告结构有离线回归测试，确保不写入原始问题、提示词、模型文本或 API Key；P7 请求只会发送白名单保留片段和最小语义定义。
+- P7 意图黄金集包含 7 个合成问题；真实模型 Harness 必须显式指定用例 ID，且只允许路由标记为 `model_fallback` 的用例。当前阶段每次运行最多发 1 个请求。结构化意图通过后，Harness 只会在确认连接到本仓库 `data/local/chatbi.sqlite` 且 Mock manifest 版本匹配时，调用固定查询模板查询本地 Mock 数据。报告记录意图、校验/模板映射和查询执行状态，但不记录问题原文、模型输出或查询结果值。
+- 报告不写入原始问题、提示词、模型文本、API Key 或查询结果值；P7 请求只会发送白名单保留片段和最小语义定义。非本地 SQLite 数据库或 Mock manifest 版本不匹配时，Harness 会拒绝执行查询。
+- 每份报告都记录 `code_revision`、`working_tree_clean`、工作区状态摘要、跟踪文件差异摘要，以及后端/Harness/活动语义目录/测试用例/Mock manifest 的源码指纹。`code_revision` 单独只代表 Git HEAD；发布审查应同时查看工作区状态和指纹。
 
 SQLite 参考查询只用于验证 Mock 数据、Seeder 与 P3 黄金结果的一致性。端到端结果通过 FastAPI ASGI HTTP 接口调用实际 P6 确定性查询服务；数据仍为本地 Mock。
 
@@ -34,11 +35,19 @@ SQLite 参考查询只用于验证 Mock 数据、Seeder 与 P3 黄金结果的�
 
 ## P7 模型意图评估
 
-首次配置时在项目根目录复制 `.env.example` 为 `.env`，把 `CHATBI_LLM_PROVIDER` 改为 `deepseek`，并把 `DEEPSEEK_API_KEY` 填入你的密钥。`.env` 已被 Git 忽略，后端启动和 Harness 都会读取它。不要把密钥提交到仓库或发在聊天中。以下命令最多调用 7 次 DeepSeek API，结果写入被 Git 忽略的本地目录；可用 `--limit 1` 先跑一个样例：
+真实模型请求需由用户明确批准后，才在本机运行。不要把密钥提交到仓库或发在聊天中；Harness 从本机进程环境读取配置，不会把密钥写进报告。当前经审核的唯一模型回退样例是 P7-04；P7-01 至 P7-03 是规则命中样例，不能交给模型 Harness。以下命令最多发送 1 次 DeepSeek 请求，并在意图通过后查询本地 Mock，结果写入被 Git 忽略的本地目录：
 
 ```powershell
-& .\.venv\Scripts\python.exe -m harness.run_llm_eval --limit 1
-& .\.venv\Scripts\python.exe -m harness.run_llm_eval
+$env:CHATBI_LLM_PROVIDER = "deepseek"
+try {
+  & .\.venv\Scripts\python.exe -m harness.run_llm_eval `
+    --case-id P7-04-channel-sales-situation-fallback `
+    --limit 1 `
+    --output data\local\p7-phase6-model-validation.json
+}
+finally {
+  $env:CHATBI_LLM_PROVIDER = "disabled"
+}
 ```
 
 无密钥/Provider 未开启时，Harness 会停止且不发送请求。P7 报告包含语义目录版本、峰时与非峰时估算费用；单价快照日期和官方来源一并写入报告，价格变更后需重跑并核对最新 [DeepSeek 价格页](https://api-docs.deepseek.com/quick_start/pricing/)。评估集为演示意图能力的合成问法，不包含真实业务数据或个人信息。

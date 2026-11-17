@@ -12,6 +12,7 @@
     {"id": "UQ-08", "question": "哪些类目本周销售额较上周下降最多？", "expected_status": "completed", "expected_query_executed": true, "visualization": "bar"},
     {"id": "UQ-09", "question": "订单数增加了，销售额为什么没同步增加？", "clarification": "比较 2025-08-28 至 2025-09-03 和之前一周", "expected_status": "completed", "expected_query_executed": true, "visualization": "table"},
     {"id": "UQ-10", "question": "“收入”和“销售额”在这里分别指什么？", "expected_status": "unknown_term", "expected_query_executed": false, "visualization": "none"},
+    {"id": "UQ-12", "question": "最近一个月各个销售渠道分别卖得怎么样？", "expected_status": "completed", "expected_query_executed": true, "visualization": "bar"},
     {"id": "NL-01-yesterday-gmv", "question": "昨日流水和订单量分别是多少？", "expected_case_id": "UQ-01", "expected_status": "completed", "expected_query_executed": true, "visualization": "kpi"},
     {"id": "NL-02-weekly-trend", "question": "近一周每天的 GMV 走势怎么样？", "expected_case_id": "UQ-02", "expected_status": "completed", "expected_query_executed": true, "visualization": "line"},
     {"id": "NL-03-month-comparison", "question": "最近完整月销售额比前一个月高多少？", "expected_case_id": "UQ-03", "expected_status": "completed", "expected_query_executed": true, "visualization": "table"},
@@ -23,6 +24,8 @@
     {"id": "NL-09-sales-order-explanation", "question": "订单量涨了但流水没涨，是什么原因？", "clarification": "比较 2025-08-28 至 2025-09-03 和之前一周", "expected_case_id": "UQ-09", "expected_status": "completed", "expected_query_executed": true, "visualization": "table"},
     {"id": "NL-10-revenue-clarification", "question": "营收和销售额有何不同？", "expected_status": "unknown_term", "expected_query_executed": false, "visualization": "none"},
     {"id": "NL-11-unsupported-refund-amount", "question": "最近30天退款金额是多少？", "expected_status": "unsupported", "expected_query_executed": false, "visualization": "none"},
-    {"id": "NL-12-confirm-revenue-as-sales", "question": "我这里说的营收就是销售额。请按销售额口径查最近 30 天。", "expected_case_id": "UQ-13", "expected_status": "completed", "expected_query_executed": true, "visualization": "kpi"}
+    {"id": "NL-12-confirm-revenue-as-sales", "question": "我这里说的营收就是销售额。请按销售额口径查最近 30 天。", "expected_case_id": "UQ-13", "expected_status": "completed", "expected_query_executed": true, "visualization": "kpi"},
+    {"id": "NL-13-channel-performance", "question": "最近一个月各销售渠道表现如何？", "expected_case_id": "UQ-12", "expected_status": "completed", "expected_query_executed": true, "visualization": "bar"},
+    {"id": "NL-14-channel-sales-orders", "question": "过去30天各销售渠道销售和订单表现如何？", "expected_case_id": "UQ-12", "expected_status": "completed", "expected_query_executed": true, "visualization": "bar"}
   ]
 }

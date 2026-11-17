@@ -48,6 +48,23 @@ def _ready_uq07(**overrides: object) -> IntentDraft:
     return IntentDraft.model_validate(fields)
 
 
+def _ready_uq12(**overrides: object) -> IntentDraft:
+    fields: dict[str, object] = {
+        "status": "ready",
+        "question_kind": "uq12",
+        "metric_ids": ["sales_amount", "order_count"],
+        "dimension_ids": ["channel"],
+        "time_range": {
+            "timezone": "Asia/Shanghai",
+            "start_inclusive": "2026-07-02",
+            "end_exclusive": "2026-08-01",
+        },
+        "filter_ids": ["valid_paid_orders"],
+    }
+    fields.update(overrides)
+    return IntentDraft.model_validate(fields)
+
+
 def test_valid_top_ten_intent_passes_semantic_validation() -> None:
     draft = _ready_uq04()
     validated = validate_intent_draft(draft)
@@ -58,6 +75,21 @@ def test_valid_top_ten_intent_passes_semantic_validation() -> None:
 
 def test_valid_refund_rate_intent_passes_semantic_validation() -> None:
     assert validate_intent_draft(_ready_uq07()).template_id == "uq07_product_refund_rate"
+
+
+def test_uq12_validates_sales_and_order_count_to_channel_query_template() -> None:
+    draft = _ready_uq12()
+
+    validated = validate_intent_draft(draft)
+
+    assert set(validated.draft.metric_ids) == {"sales_amount", "order_count"}
+    assert validated.draft.dimension_ids == ["channel"]
+    assert validated.template_id == "uq12_channel_sales_orders"
+
+
+def test_uq12_rejects_average_order_value_substitution() -> None:
+    with pytest.raises(IntentValidationError, match="metric_set_not_allowed_for_kind"):
+        validate_intent_draft(_ready_uq12(metric_ids=["average_order_value"]))
 
 
 def test_valid_category_comparison_can_sort_by_derived_change() -> None:
@@ -130,21 +162,69 @@ def test_unknown_term_cannot_resolve_to_a_query_template() -> None:
     assert validate_intent_draft(draft).template_id is None
 
 
-def test_clarification_cannot_include_executable_time_conditions() -> None:
+@pytest.mark.parametrize(
+    ("metric_ids", "dimension_ids", "time_range"),
+    [
+        (["sales_amount"], [], None),
+        ([], ["product"], None),
+        (["sales_amount"], ["product"], None),
+        (
+            ["sales_amount"],
+            ["product"],
+            {
+                "timezone": "Asia/Shanghai",
+                "start_inclusive": "2026-07-02",
+                "end_exclusive": "2026-08-01",
+            },
+        ),
+    ],
+)
+def test_clarification_cannot_include_executable_conditions(
+    metric_ids: list[str], dimension_ids: list[str], time_range: dict[str, str] | None
+) -> None:
     draft = IntentDraft(
         status="clarification_required",
         question_kind="uq04",
-        metric_ids=["sales_amount"],
-        dimension_ids=["product"],
+        metric_ids=metric_ids,
+        dimension_ids=dimension_ids,
+        time_range=time_range,
+        clarification_prompt="请补充时间范围。",
+    )
+
+    with pytest.raises(IntentValidationError, match="clarification_contains_executable_conditions"):
+        validate_intent_draft(draft)
+
+
+@pytest.mark.parametrize("metric_ids", [["sales_amount"], ["order_count"]])
+def test_period_summary_accepts_one_registered_metric(metric_ids: list[str]) -> None:
+    draft = IntentDraft(
+        status="ready",
+        question_kind="uq13",
+        metric_ids=metric_ids,
         time_range={
             "timezone": "Asia/Shanghai",
             "start_inclusive": "2026-07-02",
             "end_exclusive": "2026-08-01",
         },
-        clarification_prompt="请补充时间范围。",
+        filter_ids=["valid_paid_orders"],
     )
 
-    with pytest.raises(IntentValidationError, match="clarification_contains_executable_conditions"):
+    assert validate_intent_draft(draft).template_id == "uq13_period_summary"
+
+
+def test_period_summary_rejects_empty_metric_set() -> None:
+    draft = IntentDraft(
+        status="ready",
+        question_kind="uq13",
+        time_range={
+            "timezone": "Asia/Shanghai",
+            "start_inclusive": "2026-07-02",
+            "end_exclusive": "2026-08-01",
+        },
+        filter_ids=["valid_paid_orders"],
+    )
+
+    with pytest.raises(IntentValidationError, match="metric_set_not_allowed_for_kind"):
         validate_intent_draft(draft)
 
 

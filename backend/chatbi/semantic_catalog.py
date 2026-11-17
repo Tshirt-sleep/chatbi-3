@@ -267,7 +267,7 @@ def validate_catalog(
             if target_id not in dimensions or term.candidate_ids:
                 _fail(path, "invalid_dimension_term_target")
         elif term.resolution == "unsupported":
-            if target_id not in entity_ids or term.candidate_ids:
+            if (target_id is not None and target_id not in entity_ids) or term.candidate_ids:
                 _fail(path, "invalid_unsupported_term_target")
             target_metric = metrics.get(target_id or "")
             if target_metric is not None and target_metric.status == "active":

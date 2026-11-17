@@ -60,10 +60,10 @@ SUPPORTED_CAPABILITIES = MappingProxyType(
         "uq12": QueryCapability(
             frozenset({"sales_amount", "order_count"}),
             frozenset({"channel"}),
-            "uq06_channel_aov",
+            "uq12_channel_sales_orders",
         ),
         "uq13": QueryCapability(
-            frozenset({"sales_amount"}), frozenset(), "uq13_period_sales_summary"
+            frozenset({"sales_amount", "order_count"}), frozenset(), "uq13_period_summary"
         ),
     }
 )

@@ -47,6 +47,13 @@ def _table_rows(section: str) -> list[list[str]]:
     return rows
 
 
+def _format_currency(value: str) -> str:
+    whole, separator, fraction = value.partition(".")
+    if not separator:
+        fraction = "00"
+    return f"¥{int(whole):,}.{(fraction + '00')[:2]}"
+
+
 def load_expectations() -> dict[str, Any]:
     markdown = RESULTS_PATH.read_text(encoding="utf-8")
     uq01 = _table_rows(_section(markdown, "UQ-01 昨日汇总"))[1]
@@ -118,6 +125,16 @@ def load_expectations() -> dict[str, Any]:
                 for row in uq06_rows
             ]
         },
+        "UQ-12": {
+            "rows": [
+                {
+                    "key": row[0],
+                    "label": row[0],
+                    "values": {"order_count": int(row[1]), "sales_amount": row[2]},
+                }
+                for row in uq06_rows
+            ]
+        },
         "UQ-07": {
             "rows": [
                 {
@@ -150,6 +167,8 @@ def load_expectations() -> dict[str, Any]:
             "values": {
                 "order_count_previous": int(previous[1]),
                 "order_count_current": int(current[1]),
+                "sales_amount_previous": _format_currency(previous[2]),
+                "sales_amount_current": _format_currency(current[2]),
                 "average_order_value_previous": previous[3],
                 "average_order_value_current": current[3],
                 "sales_amount_delta": paragraph.group(1),

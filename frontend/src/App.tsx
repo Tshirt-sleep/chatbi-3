@@ -80,23 +80,20 @@ const PUBLIC_DEMO = import.meta.env.VITE_CHATBI_PUBLIC_DEMO === "true";
 const DEMO_API_IDENTITY = "analyst";
 const DEMO_ADMIN_API_IDENTITY = "admin";
 type QueryPerspective = "management" | "operations" | "analyst";
-const QUERY_PERSPECTIVES: Record<QueryPerspective, { label: string; focus: string; answerFocus: string; ecommerce: string[] }> = {
+const QUERY_PERSPECTIVES: Record<QueryPerspective, { label: string; focus: string; ecommerce: string[] }> = {
   management: {
     label: "管理者",
     focus: "先看整体规模、关键变化和经营趋势。",
-    answerFocus: "先看整体销售额、订单量和变化方向，再结合趋势图判断经营状态。",
     ecommerce: ["昨日流水和订单量分别是多少？", "最近完整月销售额比前一个月高多少？", "最近 7 天每天销售额趋势如何？"],
   },
   operations: {
     label: "运营/产品经理",
     focus: "优先看商品、类目和渠道排行，定位可以继续跟进的分组。",
-    answerFocus: "优先查看商品、类目和渠道的排行与分组结果，定位值得跟进的环节。",
     ecommerce: ["近 30 天 GMV 排名前十的 SKU 有哪些？", "过去 30 天按品类拆分销售额和订单数", "近 30 天哪些 SKU 的退款订单率最高？"],
   },
   analyst: {
     label: "数据分析师",
     focus: "重点核对指标口径、统计周期、分组条件和明细表。",
-    answerFocus: "重点核对指标口径、时间范围与过滤条件，并结合表格明细复核。",
     ecommerce: ["近一周每天的 GMV 走势怎么样？", "近 30 天各渠道平均订单金额分别多少？", "本周相较上周哪些类目的销售额下滑最多？"],
   },
 };
@@ -391,7 +388,10 @@ function ResultCard({ response, mockUserId, sessionId, queryPerspective, onClari
     );
   const isDateRangeClarification = response.status === "clarification_required"
     && !isPeriodComparisonClarification
-    && /时间范围|日期范围|自然日时间范围/.test(response.clarification_prompt ?? "");
+    && !response.interpretation.time_range
+    && /请补充要查看的时间范围|请先选择查询时间|请补充明确的时间范围|请明确日期范围后重试/.test(
+      response.clarification_prompt ?? response.answer_text,
+    );
   function submitPeriod(start: string, end: string) {
     if (!start || !end || start > end) {
       setPeriodError("请选择有效的开始和结束日期。");
@@ -422,7 +422,6 @@ function ResultCard({ response, mockUserId, sessionId, queryPerspective, onClari
   }
   return (
     <article className="answer-card">
-      <div className={`answer-perspective answer-perspective-${queryPerspective}`}><strong>{perspective.label}关注重点（演示）</strong><span>{perspective.answerFocus}</span><small>演示角色只调整关注重点，不代表真实权限；查询口径和数据结果保持一致。</small></div>
       <p className={`answer-copy status-${response.status}`}>{response.answer_text}</p>
       {response.status === "completed" && <div className={`role-reading role-reading-${queryPerspective}`}><strong>{perspective.label}解读重点</strong><span>{roleReading(response, queryPerspective)}</span></div>}
       {response.values.length > 0 && (
@@ -440,7 +439,7 @@ function ResultCard({ response, mockUserId, sessionId, queryPerspective, onClari
       {response.visualization.type === "line" && <ResultTable rows={response.visualization.data} />}
       {response.visualization.type === "bar" && <BarChart rows={response.visualization.data} />}
       {["bar", "table"].includes(response.visualization.type) && <ResultTable rows={response.visualization.data} />}
-      {response.clarification_prompt && <p className="clarification-prompt">{response.clarification_prompt}</p>}
+      {/* answer_text is the user-facing clarification; clarification_prompt is the linked-turn contract. */}
       {isPeriodComparisonClarification && <section className="period-chooser" aria-label="选择比较日期">
         <p>不确定选哪周？可直接用最近一个完整周，或自行选择日期；系统会自动比较紧邻的前一段同长度周期。</p>
         <button type="button" className="period-preset" disabled={busy} onClick={() => {

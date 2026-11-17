@@ -41,7 +41,7 @@
 
 **产物**：迁移设计、操作手册、回滚步骤和 Mock 数据重建方案。
 
-### P9-3 建立数据库适配并兼容目标数据库（实现中）
+### P9-3 建立数据库适配并兼容目标数据库（已完成；以下为原始任务说明）
 
 - 增加 psycopg 3 驱动与 PostgreSQL URL 归一化；本地 SQLite 继续作为开发默认值。
 - readiness 改用 SQLAlchemy Inspector 检查表，不依赖 SQLite 系统表。

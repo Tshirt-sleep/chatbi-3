@@ -11,6 +11,93 @@ from .semantic_catalog import ACTIVE_CATALOG, SemanticCatalog
 
 _COMMON_SURNAMES = "王李张刘陈杨黄赵吴周徐孙马朱胡郭何高林罗郑梁谢宋唐"
 _BASE_SAFE_QUESTION_TERMS = (
+    "卖得最好",
+    "渠道",
+    "销售",
+    "额",
+    "订单",
+    "表现",
+    "绩",
+    "效",
+    "的",
+    "是",
+    "多少",
+    "分别",
+    "如何",
+    "看看",
+    "吗",
+    "能",
+    "至",
+    "和",
+    "吗",
+    "呢",
+    "分别",
+    "如何",
+    "怎么样",
+    "看看",
+    "每个",
+    "各个",
+    "各",
+    "每",
+    "近",
+    "一个月",
+    "一月",
+    "至",
+    "能",
+    "能否",
+    "过去",
+    "最近",
+    "卖得",
+    "卖",
+    "成交",
+    "单量",
+    "我想看看",
+    "帮我看看",
+    "帮我总结",
+    "总结",
+    "卖货",
+    "情况",
+    "总结下",
+    "一共有几笔",
+    "上个月",
+    "下",
+    "看看",
+    "各个",
+    "分别",
+    "能",
+    "至",
+    "个",
+    "份",
+    "怎么样",
+    "怎么",
+    "如何",
+    "买得",
+    "购买",
+    "是",
+    "的",
+    "和",
+    "吗",
+    "呢",
+    "分别",
+    "如何",
+    "怎么样",
+    "卖得",
+    "看看",
+    "每个",
+    "各个",
+    "各",
+    "每",
+    "最近",
+    "近",
+    "过去",
+    "一个月",
+    "一月",
+    "一",
+    "天",
+    "吗",
+    "呢",
+    "卖得",
+    "销售",
     "的",
     "和",
     "客户",
@@ -49,6 +136,8 @@ _BASE_SAFE_QUESTION_TERMS = (
     "统计",
     "查看",
     "查询",
+    "帮我",
+    "我想",
     "分析",
     "按",
     "分",
@@ -72,7 +161,7 @@ _BASE_SAFE_QUESTION_TERMS = (
     "同比",
     "环比",
 )
-P7_PROMPT_VERSION = "p7-intent-v6"
+P7_PROMPT_VERSION = "p7-intent-v7"
 
 
 @dataclass(frozen=True)
@@ -174,7 +263,7 @@ def _safe_question_pattern(
     safe_terms = sorted(set(_BASE_SAFE_QUESTION_TERMS).union(catalog_terms), key=len, reverse=True)
     return re.compile(
         "|".join(re.escape(term) for term in safe_terms)
-        + r"|20\d{2}-\d{1,2}-\d{1,2}|\d{1,3}(?:天|日|周|星期|个月)",
+        + r"|20\d{2}-\d{1,2}-\d{1,2}|20\d{2}年\d{1,2}月\d{1,2}日|\d{1,3}(?:天|日|周|星期|个月)",
         re.IGNORECASE,
     )
 
@@ -343,7 +432,7 @@ class DeepSeekIntentProvider:
             raise IntentProviderError(
                 f"provider_schema_{location}_{issue_type or 'invalid'}"
             ) from error
-        except (KeyError, IndexError, TypeError, json.JSONDecodeError) as error:
+        except (AttributeError, KeyError, IndexError, TypeError, ValueError) as error:
             raise IntentProviderError("provider_invalid_intent") from error
 
 
@@ -420,16 +509,30 @@ def _build_system_prompt(context: IntentParseContext) -> str:
         '{"status":"ready|clarification_required|unsupported|unknown_term",'
         '"question_kind":"a capability id listed in Catalog or null",'
         '"metric_ids":[],"dimension_ids":[],"time_range":null,'
-        '"comparison_range":null,"filter_ids":[],"sort":[],"limit":null,'
+        '"comparison_range":null,"filter_ids":[], '
+        '"sort":[{"field_id":"<allowed_metric_or_dimension_id>","direction":"asc|desc"}],'
+        '"limit":null,'
         '"clarification_prompt":null}. Include every top-level field; use null or [] '
-        "when empty. A non-null range MUST include timezone, start_inclusive and end_exclusive. "
+        "when empty. Each sort item MUST include both required fields: field_id and direction; "
+        "field_id must be an allowed metric/dimension ID (or its allowed *_id field), and "
+        "direction must be asc or desc. For a product sales ranking, use "
+        '{"field_id":"sales_amount","direction":"desc"}; '
+        "use an empty sort array when no sort is requested. "
+        "A non-null range MUST include timezone, start_inclusive and end_exclusive. "
         "Dates are half-open [start, end), based on as_of_date, and must stay within the dataset. "
-        "A ready intent must exactly match one listed capability ID, metric set and dimension set. "
+        "A ready intent must match one listed capability ID and dimension set. Its metric_ids "
+        "must match the capability metric set exactly, except uq13 may select a non-empty subset "
+        "of its listed metrics when the user asks for only those measures. "
         "Read requires_explicit_time_range and requires_comparison_period; do not invent values. "
         "Ask only for a required value that is missing. If a requested period is outside the data "
         "window, do not clip it; return clarification_required with no executable plan. "
         "If sanitized text includes '[存在未识别文本，具体内容已省略]', return unknown_term with no plan. "
         "Only use IDs in the active catalog; never output SQL. "
+        "For uq12, the listed channel-performance wording explicitly means both sales_amount "
+        "and order_count grouped by channel; do not substitute average_order_value. Buyer wording "
+        "such as '买得怎么样' is ambiguous and must be clarified. A phrase like '最近一个月' "
+        "means the rolling 30 days [as_of_date minus 30 days, as_of_date), in the listed timezone. "
+        "If clarification is required, return question_kind only with every executable field empty. "
         + theme_rules
         + " Catalog: "
         + json.dumps(catalog, ensure_ascii=False, separators=(",", ":"))

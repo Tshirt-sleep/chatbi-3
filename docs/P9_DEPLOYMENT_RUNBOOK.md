@@ -2,6 +2,8 @@
 
 本手册针对公开 Mock 演示。GitHub 私有仓库已创建；Supabase Free/Sydney 验收库与独立 Seoul 恢复演练库已完成迁移、导入和 Golden/Smoke 对照；Render API 与 Netlify 前端已部署。P9-7 恢复与服务级回滚演练通过；P9 已完成。项目方在 P10-3 确认 `chatbi-api` 沿用 Workspace Email + Only failure notifications。源码仓库保持私有；公开的是演示网站。
 
+**当前线上端点（2026-11-16）**：前端 <https://for-chatbi.netlify.app>；API <https://chatbi-api-avjp.onrender.com>。Render 已部署语义目录 API 路由提交 `9687faf`，Netlify 前端提交 `0e70344` 已发布。`/api/v1/semantics` 返回 200；公开部署仍使用 `CHATBI_LLM_PROVIDER=disabled`。当前版本及验证边界见[项目当前状态](CURRENT_STATE.md)。
+
 ## 1. Supabase：建立专用 Mock 数据库
 
 1. 当前已在 `Dialogue Finder` Free 组织创建独立 `chatbi-mock` 项目，项目状态为 Healthy，区域为 Oceania (Sydney)。项目方已选择公开演示继续使用此 Free 项目，并接受低活跃时可能暂停、没有自动备份。不要复用包含真实数据的项目。项目区创建后不能直接更换；若将来要迁区，需新建空项目并按恢复手册迁移。

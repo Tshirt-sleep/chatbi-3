@@ -1,55 +1,67 @@
 {
-  "suite_id": "ecommerce_chatbi_p7_intent_v1",
-  "prompt_version": "p7-intent-v6",
+  "suite_id": "ecommerce_chatbi_p7_intent_v2",
+  "prompt_version": "p7-intent-v7",
   "max_cases": 7,
   "cases": [
     {
-      "id": "P7-01-product-top-alias",
-      "question": "近30天GMV最高的SKU排行",
+      "id": "P7-01-channel-sells-how",
+      "evaluation_route": "rule",
+      "question": "最近一个月各个销售渠道分别卖得怎么样？",
       "expected": {
         "status": "ready",
-        "question_kind": "uq04",
-        "metric_ids": ["sales_amount"],
-        "dimension_ids": ["product"],
-        "time_range": ["2026-07-02", "2026-08-01"],
-        "limit": 10
-      }
-    },
-    {
-      "id": "P7-02-category-alias",
-      "question": "最近30天GMV按品类汇总订单和成交表现",
-      "expected": {
-        "status": "ready",
-        "question_kind": "uq05",
-        "metric_ids": ["order_count", "sales_amount"],
-        "dimension_ids": ["category"],
-        "time_range": ["2026-07-02", "2026-08-01"]
-      }
-    },
-    {
-      "id": "P7-03-channel-aov-alias",
-      "question": "统计最近30天每个渠道的平均订单金额",
-      "expected": {
-        "status": "ready",
-        "question_kind": "uq06",
-        "metric_ids": ["average_order_value"],
+        "question_kind": "uq12",
+        "metric_ids": ["sales_amount", "order_count"],
         "dimension_ids": ["channel"],
         "time_range": ["2026-07-02", "2026-08-01"]
       }
     },
     {
-      "id": "P7-04-weekly-trend-alias",
-      "question": "最近一周GMV趋势",
+      "id": "P7-02-channel-performance-alias",
+      "evaluation_route": "rule",
+      "question": "最近一个月各销售渠道表现如何？",
       "expected": {
         "status": "ready",
-        "question_kind": "uq02",
-        "metric_ids": ["sales_amount"],
-        "dimension_ids": ["order_date"],
-        "time_range": ["2026-07-25", "2026-08-01"]
+        "question_kind": "uq12",
+        "metric_ids": ["sales_amount", "order_count"],
+        "dimension_ids": ["channel"],
+        "time_range": ["2026-07-02", "2026-08-01"]
       }
     },
     {
-      "id": "P7-05-missing-time",
+      "id": "P7-03-channel-deal-performance-alias",
+      "evaluation_route": "rule",
+      "question": "近一个月每个销售渠道的成交表现如何？",
+      "expected": {
+        "status": "ready",
+        "question_kind": "uq12",
+        "metric_ids": ["sales_amount", "order_count"],
+        "dimension_ids": ["channel"],
+        "time_range": ["2026-07-02", "2026-08-01"]
+      }
+    },
+    {
+      "id": "P7-04-channel-sales-situation-fallback",
+      "evaluation_route": "model_fallback",
+      "question": "帮我总结下最近一个月每个销售渠道卖货的情况",
+      "expected": {
+        "status": "ready",
+        "question_kind": "uq12",
+        "metric_ids": ["sales_amount", "order_count"],
+        "dimension_ids": ["channel"],
+        "time_range": ["2026-07-02", "2026-08-01"]
+      }
+    },
+    {
+      "id": "P7-05-unknown-metric",
+      "evaluation_route": "deterministic_reject",
+      "question": "最近30天各渠道毛利是多少？",
+      "expected": {
+        "status": "unknown_term"
+      }
+    },
+    {
+      "id": "P7-06-missing-time",
+      "evaluation_route": "deterministic_clarification",
       "question": "SKU热销排行榜",
       "expected": {
         "status": "clarification_required",
@@ -57,14 +69,8 @@
       }
     },
     {
-      "id": "P7-06-unknown-business-term",
-      "question": "最近30天外太空舱销量趋势",
-      "expected": {
-        "status": "unknown_term"
-      }
-    },
-    {
-      "id": "P7-07-out-of-range-date",
+      "id": "P7-07-out-of-range-relative-time",
+      "evaluation_route": "deterministic_reject",
       "question": "最近500天表现最好的SKU排行",
       "expected": {
         "status": "clarification_required",

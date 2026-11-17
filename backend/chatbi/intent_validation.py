@@ -94,6 +94,8 @@ def validate_intent_draft(draft: IntentDraft) -> ValidatedIntent:
             raise IntentValidationError("clarification_prompt_required")
         if any(
             (
+                draft.metric_ids,
+                draft.dimension_ids,
                 draft.time_range,
                 draft.comparison_range,
                 draft.filter_ids,
@@ -131,7 +133,10 @@ def validate_intent_draft(draft: IntentDraft) -> ValidatedIntent:
         or allowed_dimension_ids != registered.dimension_ids
     ):
         raise IntentValidationError("catalog_capability_not_allowlisted")
-    if set(draft.metric_ids) != allowed_metric_ids:
+    if kind == "uq13":
+        if not draft.metric_ids or not set(draft.metric_ids) <= allowed_metric_ids:
+            raise IntentValidationError("metric_set_not_allowed_for_kind")
+    elif set(draft.metric_ids) != allowed_metric_ids:
         raise IntentValidationError("metric_set_not_allowed_for_kind")
     if set(draft.dimension_ids) != allowed_dimension_ids:
         raise IntentValidationError("dimension_set_not_allowed_for_kind")

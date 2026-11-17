@@ -29,6 +29,7 @@ from .llm_provider import (
     IntentProviderError,
     MetricDefinition,
     SemanticTermDefinition,
+    redact_question,
 )
 from .query_capabilities import SUPPORTED_CAPABILITIES
 from .query_schemas import (
@@ -51,6 +52,8 @@ DATASET_ID = CATALOG.dataset_id
 CATALOG_ID = CATALOG.catalog_id
 CATALOG_VERSION = CATALOG.version
 AS_OF_DATE = ACTIVE_CATALOG.as_of_date
+DATA_START_DATE = ACTIVE_CATALOG.dataset_start_date
+DATA_END_EXCLUSIVE = ACTIVE_CATALOG.dataset_end_exclusive
 TIMEZONE = CATALOG.timezone
 VALID_ORDER_FILTER = "order_status IN ('paid', 'completed') AND paid_at IS NOT NULL"
 _DATE_TOKEN_PATTERN = r"20\d{2}-\d{1,2}-\d{1,2}|20\d{2}年\d{1,2}月\d{1,2}日"
@@ -60,6 +63,19 @@ METRIC_DEFINITIONS = {
 _METRICS_BY_ID = {metric.id: metric for metric in CATALOG.metrics}
 _DIMENSIONS_BY_ID = {dimension.id: dimension for dimension in CATALOG.dimensions}
 _FOLLOWUP_DIMENSION_IDS = frozenset({"product", "category", "channel"})
+
+_CHANNEL_SALES_ORDER_SQL = """
+    SELECT ch.channel_id, ch.channel_name,
+           COUNT(DISTINCT o.order_id) AS order_count,
+           COALESCE(SUM(o.paid_amount_cents), 0) AS sales_cents
+    FROM channels ch
+    LEFT JOIN orders o ON o.dataset_id = ch.dataset_id AND o.channel_id = ch.channel_id
+      AND o.order_status IN ('paid', 'completed') AND o.paid_at IS NOT NULL
+      AND o.paid_at >= :start_inclusive AND o.paid_at < :end_exclusive
+    WHERE ch.dataset_id = :dataset_id
+    GROUP BY ch.channel_id, ch.channel_name
+    ORDER BY ch.channel_id ASC
+"""
 
 SQL_TEMPLATES: dict[str, str] = {
     "uq01_daily_summary": """
@@ -71,8 +87,9 @@ SQL_TEMPLATES: dict[str, str] = {
           AND paid_at IS NOT NULL
           AND paid_at >= :start_inclusive AND paid_at < :end_exclusive
     """,
-    "uq13_period_sales_summary": """
-        SELECT COALESCE(SUM(paid_amount_cents), 0) AS sales_cents
+    "uq13_period_summary": """
+        SELECT COALESCE(SUM(paid_amount_cents), 0) AS sales_cents,
+               COUNT(DISTINCT order_id) AS order_count
         FROM orders
         WHERE dataset_id = :dataset_id
           AND order_status IN ('paid', 'completed')
@@ -150,18 +167,8 @@ SQL_TEMPLATES: dict[str, str] = {
         GROUP BY c.category_id, c.category_name
         ORDER BY c.category_id ASC
     """,
-    "uq06_channel_aov": """
-        SELECT ch.channel_id, ch.channel_name,
-               COUNT(DISTINCT o.order_id) AS order_count,
-               COALESCE(SUM(o.paid_amount_cents), 0) AS sales_cents
-        FROM channels ch
-        LEFT JOIN orders o ON o.dataset_id = ch.dataset_id AND o.channel_id = ch.channel_id
-          AND o.order_status IN ('paid', 'completed') AND o.paid_at IS NOT NULL
-          AND o.paid_at >= :start_inclusive AND o.paid_at < :end_exclusive
-        WHERE ch.dataset_id = :dataset_id
-        GROUP BY ch.channel_id, ch.channel_name
-        ORDER BY ch.channel_id ASC
-    """,
+    "uq06_channel_aov": _CHANNEL_SALES_ORDER_SQL,
+    "uq12_channel_sales_orders": _CHANNEL_SALES_ORDER_SQL,
     "uq11_category_top": """
         SELECT c.category_id, c.category_name,
                COALESCE(SUM(oi.line_amount_after_discount_cents), 0) AS sales_cents
@@ -267,6 +274,7 @@ class PendingClarification:
     turn_id: str
     question_kind: str
     prompt: str
+    time_range: TimeRange | None = None
 
 
 @dataclass
@@ -582,6 +590,26 @@ def _classify(normalized: str) -> str | None:
     has_order_count = "order_count" in metric_ids
     has_average_order_value = "average_order_value" in metric_ids
 
+    # This small, explicitly approved phrase family has one catalog meaning:
+    # channel sales amount plus distinct valid order count. Keep buyer wording
+    # out of this branch so it continues to ask for clarification.
+    if _is_confirmed_channel_performance_wording(normalized):
+        return "uq12"
+
+    # A plain metric total over a recognized range is a supported summary even
+    # when it is not one of the older pre-composed metric combinations.
+    if (
+        not dimension_ids
+        and _parse_recent_range(normalized) is not None
+        and (has_sales_amount or has_order_count)
+        and not has_average_order_value
+        and not any(
+            term in normalized
+            for term in ("比较", "对比", "相比", "变化", "趋势", "为什么", "原因")
+        )
+    ):
+        return "uq13"
+
     if revenue_confirmed_as_sales:
         only_sales_metric = has_sales_amount and not (
             has_order_count or has_average_order_value or "refund_rate" in metric_ids
@@ -684,7 +712,7 @@ def _classify(normalized: str) -> str | None:
         and has_sales_amount
     ):
         return "uq02"
-    if has_sales_amount and _parse_recent_range(normalized) is not None:
+    if (has_sales_amount or has_order_count) and _parse_recent_range(normalized) is not None:
         return "uq13"
     if ("昨天" in normalized or "昨日" in normalized) and (has_sales_amount or has_order_count):
         return "uq01"
@@ -743,6 +771,67 @@ def _contains_unsafe_instruction(normalized: str) -> bool:
     return any(marker in normalized for marker in markers)
 
 
+def _is_confirmed_channel_performance_wording(normalized: str) -> bool:
+    """Recognize the approved, non-ambiguous channel performance wording family."""
+    normalized = _normalize_semantic_text(normalized)
+    if "channel" not in _matched_entity_ids(normalized, CATALOG.dimensions):
+        return False
+    if any(phrase in normalized for phrase in ("买得怎么样", "买得如何", "购买情况", "购买表现")):
+        return False
+    has_sales_or_transaction = any(term in normalized for term in ("卖", "销售", "成交"))
+    has_performance = any(term in normalized for term in ("表现", "怎么样", "如何"))
+    has_orders = any(term in normalized for term in ("订单", "单量"))
+    has_channel_performance = (
+        "渠道" in normalized
+        and "表现" in normalized
+        and any(term in normalized for term in ("如何", "怎么样"))
+    )
+    return (
+        has_channel_performance
+        or (has_sales_or_transaction and has_performance)
+        or ("销售" in normalized and has_orders and has_performance)
+        or ("成交" in normalized and has_orders and "分别" in normalized)
+    )
+
+
+def _is_ambiguous_buyer_performance_wording(normalized: str) -> bool:
+    compact = _normalize_semantic_text(normalized)
+    return any(term in compact for term in ("买得怎么样", "买得如何", "购买情况", "购买表现"))
+
+
+def _buyer_metric_confirmation(
+    request_id: str,
+    turn_id: str,
+    date_range: TimeRange | None,
+) -> TurnResponse:
+    metrics = "各渠道销售额和有效订单数"
+    if date_range is None:
+        prompt = (
+            f"“买得怎么样”可能指不同的购买表现。我建议按{metrics}展示。"
+            "请先选择查询时间；选好后只需确认指标口径。"
+        )
+    else:
+        prompt = (
+            f"“买得怎么样”可能指不同的购买表现。已识别时间范围为 "
+            f"{date_range.start_inclusive} 至 {date.fromisoformat(date_range.end_exclusive) - timedelta(days=1)}"
+            f"（{TIMEZONE}）。是否按{metrics}展示？回复“确认”即可。"
+        )
+    return _base_response(
+        request_id,
+        turn_id,
+        "clarification_required",
+        prompt,
+        Interpretation(
+            metric_ids=["sales_amount", "order_count"],
+            dimension_ids=["channel"],
+            time_range=date_range,
+            clarification_state="required",
+        ),
+        clarification_id=turn_id,
+        clarification_prompt=prompt,
+    )
+
+
 def _clarification_kind(kind: str) -> tuple[str, str] | None:
     prompts = {
         "uq04": ("time_range", "请补充要查看的时间范围，例如“最近 30 天”。"),
@@ -758,7 +847,7 @@ def _clarification_kind(kind: str) -> tuple[str, str] | None:
     return prompts.get(kind)
 
 
-def _parse_recent_range(normalized: str) -> TimeRange | None:
+def _recent_range_bounds(normalized: str) -> tuple[date, date] | None:
     numerals = {
         "一": 1,
         "二": 2,
@@ -771,7 +860,10 @@ def _parse_recent_range(normalized: str) -> TimeRange | None:
         "九": 9,
         "十": 10,
     }
-    match = re.search(r"(?:最近|近|过去)(\d+|[一二三四五六七八九十]+)(天|日|周|星期)", normalized)
+    match = re.search(
+        r"(?:最近|近|过去)(\d+|[一二三四五六七八九十]+)(?:个)?(天|日|周|星期|个月|月)",
+        normalized,
+    )
     if not match:
         return None
     number_text, unit = match.groups()
@@ -788,10 +880,22 @@ def _parse_recent_range(normalized: str) -> TimeRange | None:
         amount = numerals.get(tens, 1) * 10 + numerals.get(ones, 0)
     else:
         amount = numerals.get(number_text, 0)
-    days = amount * 7 if unit in {"周", "星期"} else amount
-    if days < 1 or days > 366:
+    days = (
+        amount * 7 if unit in {"周", "星期"} else amount * 30 if unit in {"个月", "月"} else amount
+    )
+    if days < 1 or days > 36500:
         return None
-    return _range(AS_OF_DATE - timedelta(days=days), AS_OF_DATE)
+    return DATA_END_EXCLUSIVE - timedelta(days=days), DATA_END_EXCLUSIVE
+
+
+def _parse_recent_range(normalized: str) -> TimeRange | None:
+    bounds = _recent_range_bounds(normalized)
+    if bounds is None:
+        return None
+    start, end = bounds
+    if start < DATA_START_DATE:
+        return None
+    return _range(start, end)
 
 
 def _date_range_from_question(normalized: str) -> TimeRange | None:
@@ -833,10 +937,12 @@ def _parse_two_periods(normalized: str) -> tuple[TimeRange, TimeRange] | None:
         previous_end = current_start
         previous_start = previous_end - timedelta(days=duration)
     else:
-        previous_start, previous_last_day = parsed_dates[2], parsed_dates[3]
-        if previous_start is None or previous_last_day is None:
+        previous_start_candidate, previous_last_day = parsed_dates[2], parsed_dates[3]
+        if previous_start_candidate is None or previous_last_day is None:
             return None
+        previous_start = previous_start_candidate
         previous_end = previous_last_day + timedelta(days=1)
+    assert previous_start is not None
     dataset_start = ACTIVE_CATALOG.dataset_start_date
     if (
         current_start < dataset_start
@@ -873,11 +979,24 @@ def _parse_explicit_range(normalized: str) -> TimeRange | None:
     if (
         start >= last_day + timedelta(days=1)
         or (end - start).days > 366
-        or start < ACTIVE_CATALOG.dataset_start_date
-        or end > AS_OF_DATE
+        or start < DATA_START_DATE
+        or end > DATA_END_EXCLUSIVE
     ):
         return None
     return _range(start, end)
+
+
+def _explicit_range_is_out_of_dataset(normalized: str) -> bool:
+    """Identify explicit or relative date requests outside the active data window."""
+    dates = re.findall(_DATE_TOKEN_PATTERN, normalized)
+    if len(dates) == 2:
+        start, last_day = (_parse_date_token(token) for token in dates)
+        if start is not None and last_day is not None and start <= last_day:
+            end_exclusive = last_day + timedelta(days=1)
+            if start < DATA_START_DATE or end_exclusive > DATA_END_EXCLUSIVE:
+                return True
+    recent_bounds = _recent_range_bounds(normalized)
+    return recent_bounds is not None and recent_bounds[0] < DATA_START_DATE
 
 
 def _metric(
@@ -904,6 +1023,7 @@ def _answer_for_kind(
     engine: Engine,
     date_range: TimeRange | None = None,
     periods: tuple[TimeRange, TimeRange] | None = None,
+    selected_metric_ids: list[str] | None = None,
 ) -> TurnResponse:
     definitions = METRIC_DEFINITIONS
     if kind == "revenue_definition":
@@ -923,34 +1043,61 @@ def _answer_for_kind(
                 request_id, turn_id, kind, "请补充明确的时间范围，例如“最近 30 天”。"
             )
         rows, debug = _execute(
-            engine, "uq13_period_sales_summary", _params_for_range(date_range), request_id
+            engine, "uq13_period_summary", _params_for_range(date_range), request_id
         )
-        sales = _METRICS_BY_ID["sales_amount"]
-        amount = _format_money(int(rows[0]["sales_cents"]))
-        value = _metric("sales_amount", "期间销售额", amount, "CNY", definitions["sales_amount"])
+        requested_metric_ids = set(
+            selected_metric_ids
+            if selected_metric_ids is not None
+            else _matched_entity_ids(question, CATALOG.metrics)
+        )
+        has_sales_amount = "sales_amount" in requested_metric_ids
+        has_order_count = "order_count" in requested_metric_ids
+        if not has_sales_amount and not has_order_count:
+            has_sales_amount = True
+        values: list[MetricValue] = []
+        row_values: dict[str, str | int | None] = {}
+        if has_sales_amount:
+            amount = _format_money(int(rows[0]["sales_cents"]))
+            row_values["sales_amount"] = amount
+            values.append(
+                _metric("sales_amount", "期间销售额", amount, "CNY", definitions["sales_amount"])
+            )
+        if has_order_count:
+            count = int(rows[0]["order_count"])
+            row_values["order_count"] = count
+            values.append(
+                _metric("order_count", "期间订单数", count, "orders", definitions["order_count"])
+            )
+        metric_ids: list[str] = [
+            metric_id for metric_id in ("sales_amount", "order_count") if metric_id in row_values
+        ]
         interpretation = Interpretation(
-            metric_ids=["sales_amount"],
+            metric_ids=metric_ids,
             time_range=date_range,
             filters=[VALID_ORDER_FILTER],
+        )
+        answer_summary = "，".join(
+            f"{_METRICS_BY_ID[metric_id].label}为 {row_values[metric_id]}{' 元' if metric_id == 'sales_amount' else ' 单'}"
+            for metric_id in metric_ids
         )
         return _base_response(
             request_id,
             turn_id,
             "completed",
-            f"所选期间销售额为 {amount} 元。按支付时间归属，统计支付成功或已完成订单的折后实付金额，不扣退款。",
+            f"所选期间{answer_summary}。按支付时间归属，统计支付成功或已完成的去重订单；销售额为折后实付金额，不扣退款。",
             interpretation,
-            definitions=[sales.definition],
+            definitions=[definitions[metric_id] for metric_id in metric_ids],
             visualization=Visualization(
                 type="kpi",
                 data=[
                     ResultRow(
-                        key="sales_amount",
-                        label="期间销售额",
-                        values={"sales_amount": amount},
+                        key="period_summary",
+                        label="所选期间",
+                        values=row_values,
                     )
                 ],
             ),
-            values=[value],
+            values=values,
             query=debug,
         )
 
@@ -1295,7 +1442,8 @@ def _answer_for_kind(
                 ],
                 query=debug,
             )
-        rows, debug = _execute(engine, "uq06_channel_aov", params, request_id)
+        channel_template_id = "uq12_channel_sales_orders" if kind == "uq12" else "uq06_channel_aov"
+        rows, debug = _execute(engine, channel_template_id, params, request_id)
         result_rows = []
         for row in rows:
             order_count = int(row["order_count"])
@@ -1336,13 +1484,20 @@ def _answer_for_kind(
             )
         )
         values = []
-        channel_metrics = set()
-        if "sales_amount" in _matched_entity_ids(question, CATALOG.metrics):
-            channel_metrics.add("sales_amount")
-        if "order_count" in _matched_entity_ids(question, CATALOG.metrics):
-            channel_metrics.add("order_count")
-        if "average_order_value" in _matched_entity_ids(question, CATALOG.metrics):
-            channel_metrics.add("average_order_value")
+        if kind == "uq12" and selected_metric_ids is not None:
+            # For model-parsed natural wording, use only the validated semantic
+            # intent. Do not re-infer metrics from the original surface wording.
+            channel_metrics = set(selected_metric_ids)
+        elif kind == "uq12" and _is_confirmed_channel_performance_wording(question):
+            channel_metrics = {"sales_amount", "order_count"}
+        else:
+            channel_metrics = set()
+            if "sales_amount" in _matched_entity_ids(question, CATALOG.metrics):
+                channel_metrics.add("sales_amount")
+            if "order_count" in _matched_entity_ids(question, CATALOG.metrics):
+                channel_metrics.add("order_count")
+            if "average_order_value" in _matched_entity_ids(question, CATALOG.metrics):
+                channel_metrics.add("average_order_value")
         if not channel_metrics:
             channel_metrics = {"average_order_value"}
         if kind == "uq06":
@@ -1559,6 +1714,25 @@ def _answer_for_kind(
             rounded = int(amount.quantize(Decimal(1), rounding=ROUND_HALF_UP))
             return display_money(rounded)
 
+        values.extend(
+            [
+                _metric(
+                    "sales_amount_previous",
+                    "对比期销售额",
+                    display_money(previous_cents),
+                    "CNY",
+                    "所选期间有效订单的折后实付金额之和，不扣退款。",
+                ),
+                _metric(
+                    "sales_amount_current",
+                    "当前期销售额",
+                    display_money(current_cents),
+                    "CNY",
+                    "所选期间有效订单的折后实付金额之和，不扣退款。",
+                ),
+            ]
+        )
+
         order_change = current_orders - previous_orders
         order_change_text = (
             f"{order_change:+d} 单"
@@ -1595,8 +1769,24 @@ def _answer_for_kind(
             filters=[VALID_ORDER_FILTER],
         )
         result_rows = [
-            ResultRow(key=value.metric_id, label=value.label, values={value.metric_id: value.value})
-            for value in values
+            ResultRow(
+                key="previous_period",
+                label=f"对比期（{previous.start_inclusive} 至 {previous_last_day.isoformat()}）",
+                values={
+                    "order_count": previous_orders,
+                    "sales_amount": display_money(previous_cents),
+                    "average_order_value": display_aov(previous_aov),
+                },
+            ),
+            ResultRow(
+                key="current_period",
+                label=f"当前期（{current.start_inclusive} 至 {current_last_day.isoformat()}）",
+                values={
+                    "order_count": current_orders,
+                    "sales_amount": display_money(current_cents),
+                    "average_order_value": display_aov(current_aov),
+                },
+            ),
         ]
         return _base_response(
             request_id,
@@ -1673,7 +1863,7 @@ def _answer_group_followup(
     engine: Engine,
 ) -> TurnResponse:
     template_id = {
-        "channel": "uq06_channel_aov",
+        "channel": "uq12_channel_sales_orders",
         "category": "uq05_category_summary",
         "product": "followup_product_group",
     }[dimension]
@@ -1812,6 +2002,138 @@ def answer_question(
     kind: str | None = None
     dimension = _group_dimension(normalized)
     incoming_kind = _classify(normalized)
+    linked_valid_date_replacement = (
+        session.pending is not None
+        and clarifies_turn_id == session.pending.turn_id
+        and session.pending.question_kind
+        in {"uq04", "uq05", "uq06", "uq07", "uq11", "uq12", "uq13"}
+        and _parse_explicit_range(normalized) is not None
+    )
+    if _explicit_range_is_out_of_dataset(normalized) and not linked_valid_date_replacement:
+        supported_start = DATA_START_DATE.isoformat()
+        supported_end = (DATA_END_EXCLUSIVE - timedelta(days=1)).isoformat()
+        message = (
+            f"当前模拟数据支持 {supported_start} 至 {supported_end}（{TIMEZONE}）；"
+            "你请求的时间范围超出此范围，请调整时间。未执行查询。"
+        )
+        session.pending = None
+        if incoming_kind in {"uq04", "uq05", "uq06", "uq07", "uq11", "uq12", "uq13"}:
+            session.pending = PendingClarification(
+                turn_id=turn_id,
+                question_kind=incoming_kind,
+                prompt=message,
+            )
+        return _base_response(
+            request_id,
+            turn_id,
+            "clarification_required",
+            message,
+            Interpretation(clarification_state="required"),
+            clarification_id=turn_id if session.pending is not None else None,
+            clarification_prompt=message,
+        )
+
+    if (
+        _is_ambiguous_buyer_performance_wording(normalized)
+        and "channel" in _matched_entity_ids(normalized, CATALOG.dimensions)
+        and not _matched_entity_ids(normalized, CATALOG.metrics)
+        and not (
+            session.pending
+            and session.pending.question_kind in {"channel_buyer_time", "channel_buyer_metric"}
+            and clarifies_turn_id == session.pending.turn_id
+        )
+    ):
+        date_range = _date_range_from_question(normalized)
+        if date_range is None:
+            prompt = (
+                "“买得怎么样”可能指不同的购买表现。我建议按各渠道销售额和有效订单数展示。"
+                "请先选择查询时间；选好后只需确认指标口径。"
+            )
+            pending_kind = "channel_buyer_time"
+        else:
+            prompt = (
+                f"“买得怎么样”可能指不同的购买表现。已识别时间范围为 "
+                f"{date_range.start_inclusive} 至 {date.fromisoformat(date_range.end_exclusive) - timedelta(days=1)}"
+                f"（{TIMEZONE}）。是否按各渠道销售额和有效订单数展示？回复“确认”即可。"
+            )
+            pending_kind = "channel_buyer_metric"
+        session.pending = PendingClarification(
+            turn_id=turn_id,
+            question_kind=pending_kind,
+            prompt=prompt,
+            time_range=date_range,
+        )
+        return _buyer_metric_confirmation(request_id, turn_id, date_range)
+
+    if session.pending and session.pending.question_kind in {
+        "channel_buyer_time",
+        "channel_buyer_metric",
+    }:
+        pending = session.pending
+        if clarifies_turn_id != pending.turn_id:
+            return _base_response(
+                request_id,
+                turn_id,
+                "clarification_required",
+                pending.prompt,
+                Interpretation(
+                    metric_ids=["sales_amount", "order_count"],
+                    dimension_ids=["channel"],
+                    time_range=pending.time_range,
+                    clarification_state="required",
+                ),
+                clarification_id=pending.turn_id,
+                clarification_prompt=pending.prompt,
+            )
+        if pending.question_kind == "channel_buyer_time":
+            selected_range = _parse_explicit_range(normalized)
+            if selected_range is None:
+                selected_range = _date_range_from_question(normalized)
+            if selected_range is None:
+                return _buyer_metric_confirmation(request_id, pending.turn_id, None)
+            session.pending = PendingClarification(
+                turn_id=turn_id,
+                question_kind="channel_buyer_metric",
+                prompt="请确认是否按各渠道销售额和有效订单数展示，并回复“确认”。",
+                time_range=selected_range,
+            )
+            return _buyer_metric_confirmation(request_id, turn_id, selected_range)
+
+        compact_reply = _normalize_semantic_text(normalized)
+        confirms_metrics = any(
+            term in compact_reply
+            for term in (
+                "确认",
+                "是",
+                "对",
+                "可以",
+                "按这个口径",
+                "销售额和有效订单数",
+                "销售额和订单数",
+            )
+        )
+        if not confirms_metrics or pending.time_range is None:
+            response = _buyer_metric_confirmation(request_id, turn_id, pending.time_range)
+            session.pending = PendingClarification(
+                turn_id=turn_id,
+                question_kind="channel_buyer_metric",
+                prompt=response.clarification_prompt or response.answer_text,
+                time_range=pending.time_range,
+            )
+            return response
+        session.pending = None
+        result = _answer_for_kind(
+            "uq12",
+            question,
+            request_id,
+            turn_id,
+            query_engine,
+            date_range=pending.time_range,
+            selected_metric_ids=["sales_amount", "order_count"],
+        )
+        _remember_completed_plan(session, result)
+        return result
+
     if session.pending and incoming_kind and incoming_kind != session.pending.question_kind:
         # A clearly different, complete question starts a new turn instead of being
         # consumed as the answer to the previous clarification.
@@ -1834,7 +2156,7 @@ def answer_question(
                 clarification_prompt=pending.prompt,
             )
         kind = pending.question_kind
-        if kind in {"uq04", "uq05", "uq06", "uq07", "uq11", "uq12"}:
+        if kind in {"uq04", "uq05", "uq06", "uq07", "uq11", "uq12", "uq13"}:
             date_range = _date_range_from_question(normalized)
             if date_range is None:
                 if intent_provider is not None:
@@ -1891,7 +2213,7 @@ def answer_question(
         session.pending = None
     else:
         kind = incoming_kind
-        if kind in {"uq04", "uq05", "uq06", "uq07", "uq11", "uq12"}:
+        if kind in {"uq04", "uq05", "uq06", "uq07", "uq11", "uq12", "uq13"}:
             date_range = _date_range_from_question(normalized)
         if kind == "uq09":
             periods = _parse_two_periods(normalized)
@@ -1952,14 +2274,16 @@ def answer_question(
                 _remember_completed_plan(session, result)
                 return result
         elif kind is None:
-            return _base_response(
-                request_id,
-                turn_id,
-                "clarification_required",
-                "请先明确一个指标和时间范围，再提出按单个维度分组的追问。",
-                Interpretation(clarification_state="required"),
-                clarification_prompt="例如：“昨天的销售额是多少？”然后再问“按渠道拆分”。",
-            )
+            date_range = _date_range_from_question(normalized)
+            if date_range is None:
+                return _base_response(
+                    request_id,
+                    turn_id,
+                    "clarification_required",
+                    "请先明确一个指标和时间范围，再提出按单个维度分组的追问。",
+                    Interpretation(clarification_state="required"),
+                    clarification_prompt="例如：“昨天的销售额是多少？”然后再问“按渠道拆分”。",
+                )
 
     if kind is None:
         # Call the hosted model only after deterministic parsing has failed. Known
@@ -1972,9 +2296,25 @@ def answer_question(
                 )
                 if model_result is not None:
                     return model_result
+        else:
+            query_logger.info(
+                json.dumps(
+                    {
+                        "event": "intent_provider_skipped",
+                        "request_id": request_id,
+                        "reason_code": (
+                            "linked_clarification"
+                            if is_linked_clarification or incoming_kind is not None
+                            else "provider_disabled_or_unavailable"
+                        ),
+                        "query_executed": False,
+                    },
+                    sort_keys=True,
+                )
+            )
         return _answer_for_kind("unsupported", question, request_id, turn_id, query_engine)
 
-    if kind in {"uq04", "uq05", "uq06", "uq07", "uq11", "uq12"} and date_range is None:
+    if kind in {"uq04", "uq05", "uq06", "uq07", "uq11", "uq12", "uq13"} and date_range is None:
         prompt = "请补充要查看的时间范围，例如“最近 30 天”。"
         response = _clarification(request_id, turn_id, kind, prompt)
         session.pending = PendingClarification(turn_id=turn_id, question_kind=kind, prompt=prompt)
@@ -2136,11 +2476,48 @@ def _parse_with_model(
     previous_kind: str | None = None,
 ) -> IntentDraft | None:
     try:
-        return provider.parse(question, _intent_context(question, previous_kind))
-    except IntentProviderError:
+        context = _intent_context(question, previous_kind)
+        safe_question = redact_question(question, context=context)
+        if safe_question is not None and "[存在未识别文本" in safe_question:
+            query_logger.info(
+                json.dumps(
+                    {
+                        "event": "intent_provider_skipped",
+                        "request_id": request_id,
+                        "reason_code": "unrecognized_text_omitted",
+                        "query_executed": False,
+                    },
+                    sort_keys=True,
+                )
+            )
+            return IntentDraft(status="unknown_term")
+        draft = provider.parse(question, context)
         query_logger.info(
             json.dumps(
-                {"event": "intent_provider_unavailable", "request_id": request_id},
+                {
+                    "event": "intent_provider_parsed",
+                    "request_id": request_id,
+                    "provider": "deepseek"
+                    if provider.__class__.__name__ == "DeepSeekIntentProvider"
+                    else "custom",
+                    "question_kind": draft.question_kind,
+                    "draft_status": draft.status,
+                },
+                sort_keys=True,
+            )
+        )
+        return draft
+    except IntentProviderError as error:
+        # Provider error messages are intentionally restricted to internal reason
+        # codes. Keep logs metadata-only; never include the question or response.
+        reason_code = re.sub(r"[^a-zA-Z0-9_:-]", "", str(error))[:80] or "provider_error"
+        query_logger.info(
+            json.dumps(
+                {
+                    "event": "intent_provider_unavailable",
+                    "request_id": request_id,
+                    "reason_code": reason_code,
+                },
                 sort_keys=True,
             )
         )
@@ -2158,8 +2535,89 @@ def _answer_from_model_intent(
     """Turn a validated model proposal into the existing fixed query executor."""
     try:
         validated = validate_intent_draft(draft)
-    except IntentValidationError:
+    except IntentValidationError as error:
+        query_logger.info(
+            json.dumps(
+                {
+                    "event": "intent_validation_rejected",
+                    "request_id": request_id,
+                    "question_kind": draft.question_kind,
+                    "reason_code": error.reason_code,
+                    "query_executed": False,
+                },
+                sort_keys=True,
+            )
+        )
         return None
+    normalized_question = "".join(question.strip().lower().split())
+    if _is_confirmed_channel_performance_wording(normalized_question) and (
+        draft.question_kind != "uq12"
+        or (
+            draft.status == "ready"
+            and (
+                set(draft.metric_ids) != {"sales_amount", "order_count"}
+                or set(draft.dimension_ids) != {"channel"}
+            )
+        )
+    ):
+        query_logger.info(
+            json.dumps(
+                {
+                    "event": "intent_validation_rejected",
+                    "request_id": request_id,
+                    "question_kind": draft.question_kind,
+                    "reason_code": "channel_performance_intent_mismatch",
+                    "query_executed": False,
+                },
+                sort_keys=True,
+            )
+        )
+        return _base_response(
+            request_id,
+            turn_id,
+            "clarification_required",
+            "我无法确认各渠道表现对应的指标，请明确是否查询销售额和有效订单数。未执行查询。",
+            Interpretation(clarification_state="required"),
+            clarification_prompt="请明确是否查询销售额和有效订单数。",
+        )
+    if draft.status == "ready" and draft.question_kind is not None and draft.time_range is not None:
+        deterministic_range = _date_range_from_question(normalized_question)
+        if deterministic_range is not None and (
+            draft.time_range.start_inclusive != deterministic_range.start_inclusive
+            or draft.time_range.end_exclusive != deterministic_range.end_exclusive
+        ):
+            query_logger.info(
+                json.dumps(
+                    {
+                        "event": "intent_validation_rejected",
+                        "request_id": request_id,
+                        "question_kind": draft.question_kind,
+                        "reason_code": "model_time_range_mismatch",
+                        "query_executed": False,
+                    },
+                    sort_keys=True,
+                )
+            )
+            return _base_response(
+                request_id,
+                turn_id,
+                "clarification_required",
+                "我无法确认识别出的时间范围，请明确日期范围后重试。未执行查询。",
+                Interpretation(clarification_state="required"),
+                clarification_prompt="请明确日期范围后重试。",
+            )
+    query_logger.info(
+        json.dumps(
+            {
+                "event": "intent_validation_passed",
+                "request_id": request_id,
+                "question_kind": draft.question_kind,
+                "template_id": validated.template_id,
+                "draft_status": draft.status,
+            },
+            sort_keys=True,
+        )
+    )
     if draft.status == "unsupported":
         return _base_response(
             request_id,
@@ -2214,6 +2672,7 @@ def _answer_from_model_intent(
         engine,
         date_range=date_range,
         periods=periods,
+        selected_metric_ids=draft.metric_ids,
     )
     if result.status == "clarification_required":
         session.pending = PendingClarification(

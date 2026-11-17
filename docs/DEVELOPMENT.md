@@ -4,9 +4,10 @@
 
 ## 当前仓库状态
 
+项目的最新部署状态和“已部署/本地未提交/待办”边界以[项目当前状态](CURRENT_STATE.md)为准；本文件后续章节保留阶段验收与本地开发说明。
+
 - Git 已在项目根目录初始化，当前分支为 `master`。
-- 当前仓库尚无 Git 提交。
-- P0–P7（Mock 数据范围）已完成；P6 长图评审发现的问题已修正并复验（2026-11-07）；P7 DeepSeek API 适配、7 例黄金评估（7/7）和完整工程回归（61 项 pytest、类型/格式/前端构建）已通过；项目方接受耗时和费用基线，当前进入 P8。真实业务数据或公网开放前需另行审查数据留存、隐私告知和安全控制。
+- 仓库已有 Git 提交并连接部署流水线。P0–P9 已完成阶段验收；2026-11-16 Netlify 前端与 Render API 均有线上部署。P7 DeepSeek 评估曾在 Mock 范围通过，但公开部署主动关闭模型。真实业务数据、匿名启用模型或真实授权上线前，仍须重新审查隐私、安全和成本边界。
 - 已锁定前端 React 19.3.1、TypeScript 7.0.2、Vite 8.3.6；后端 FastAPI 0.162.0、Pydantic 2.14.2、SQLAlchemy 2.1.8、Alembic 1.20.1、Uvicorn 0.54.0。
 - 需要 Python 3.11、Node.js 20.19 或更新的兼容版本和 npm。项目当前工作环境 Python 3.11.9、Node.js 24.16.0。
 - 本地数据库文件位于 `data/local/chatbi.sqlite`（已加入 Git 忽略）；生成源仍为 `data/generated/` 下的 CSV 与 manifest。
@@ -89,12 +90,12 @@ npm run dev
 
 ## P7 启动状态
 
-P7 模型方式和服务商已确认使用 DeepSeek 托管 API。项目方确认仅在确定性解析失败/需要消歧时调用，并只发送经业务词语白名单过滤的问题片段与相关指标/维度定义。规则能处理的问题不调用模型；订单明细、查询结果或身份信息不会进入模型正文。未知片段的具体文字不会发送，只附加“存在未识别文本”的通用标记。API Key 只用于认证头，不进入提示词、正文或日志。Provider 默认关闭，须显式配置且后端有密钥才生效。意图 Schema、语义/白名单校验器、条件回退与受控查询集成和最多 7 个问题的评估 Harness 已实现；2026-11-07 `deepseek-flash` v3 合成黄金集 7/7 通过，中位耗时 1163.8 ms、观测 P95 1665.6 ms；61 项 pytest、格式/静态类型和前端检查通过。项目方已接受耗时/费用基线，Mock 数据范围的 P7 阶段门通过。公开资料未承诺 API 请求固定留存时长；真实用户/业务数据或公网服务启用前，需复核账户适用条款并完成隐私告知和安全措施。评估命令见 [Harness 说明](../harness/README.md)，完整范围见 [P7 实现规格](P7_LLM_QUERY_SPEC.md)。
+P7 模型方式和服务商已确认使用 DeepSeek 托管 API。项目方确认仅在确定性解析失败/需要消歧时调用，并只发送经业务词语白名单过滤的问题片段与相关指标/维度定义。规则能处理的问题不调用模型；订单明细、查询结果或身份信息不会进入模型正文。未知片段的具体文字不会发送，只附加“存在未识别文本”的通用标记。API Key 只用于认证头，不进入提示词、正文或日志。Provider 默认关闭，须显式配置且后端有密钥才生效。2026-11-07 的 `deepseek-flash` v3 七例合成黄金评估（7/7，中位耗时 1163.8 ms、观测 P95 1665.6 ms）是历史基线，不能代表当前本地未提交版本的完整回归。当前阶段受控 Harness 只允许显式选择 P7-04 模型回退样例，每次最多一次请求；意图通过后仅在核实本地 Mock SQLite 和 manifest 后执行固定模板。2026-11-17 项目方提供的本地单例报告显示意图、校验、模板和本地 Mock 查询均通过；该代码仍未提交/部署。报告会记录工作区状态与源码指纹。公开资料未承诺 API 请求固定留存时长；真实用户/业务数据或公网服务启用前，需复核账户适用条款并完成隐私告知和安全措施。评估命令见 [Harness 说明](../harness/README.md)，完整范围见 [P7 实现规格](P7_LLM_QUERY_SPEC.md)。
 
-## P8 当前任务
+## P8 验收记录（历史）
 
-P8-1 差距审查确认 P6 的有限澄清已覆盖 FR-010。P8-3 的 T1–T6 均已完成，SC-AC-01–11 阶段门通过。P8-2 排序/CSV、P8-4 SaaS 第二主题、P8-5 本地 Mock 权限和 P8-6 回答反馈/聚合均已实现并正式签收。最终验收：P6 HTTP Golden 10/10、54/54；pytest 98/98（query API 18/18）；ruff、mypy、前端 typecheck、表格 3/3 和生产 build 通过。P9/P10 尚未启动，P9 需项目方单独确认并启动。完整记录见 [P8 剩余迭代计划](../docs/P8_REMAINING_SCOPE.md) 和 [最终检查摘要](../data/local/p8-final-check-report.json)。
+P8-1 差距审查确认 P6 的有限澄清已覆盖 FR-010。P8-3 的 T1–T6 均已完成，SC-AC-01–11 阶段门通过。P8-2 排序/CSV、P8-4 SaaS 第二主题、P8-5 本地 Mock 权限和 P8-6 回答反馈/聚合均已实现并正式签收。验收记录：P6 HTTP Golden 10/10、54/54；pytest 98/98（query API 18/18）；ruff、mypy、前端 typecheck、表格 3/3 和生产 build 通过。阶段细节见 [P8 剩余迭代计划](../docs/P8_REMAINING_SCOPE.md) 和 [最终检查摘要](../data/local/p8-final-check-report.json)。
 
-P9-1 云平台/成本与 P9-2 单实例会话、迁移策略已确认。方案为 Netlify Free + Render Singapore Starter + Supabase Pro Singapore，基础固定费约 $32/月（约 ¥215），DeepSeek API 费用另计；先用平台子域名。P9-3 正在适配 PostgreSQL URL、readiness 检查、公开演示权限和部署配置。公开匿名模式默认关闭 DeepSeek，以免未限额的公开请求造成模型费用。还需配置 Git 远端和由用户在供应商控制台创建专用 Mock 资源；大陆网络可达性待实测且不作保证。详见 [P9 执行计划](../docs/P9_EXECUTION_PLAN.md)、[架构决策](../docs/P9_ARCHITECTURE_DECISION.md) 和[部署操作手册](../docs/P9_DEPLOYMENT_RUNBOOK.md)。P10 尚未启动。
+P9 云数据库与公开 Mock 演示部署已完成；当前云资源采用 Supabase Free、Render Free 和 Netlify Free，具体限制/验收证据见 [P9 执行计划](../docs/P9_EXECUTION_PLAN.md)。P10 上线验收与持续运营工作进行中。公开匿名模式关闭 DeepSeek。最新线上提交、当前浏览器会话存储边界和本地未提交改动见[项目当前状态](CURRENT_STATE.md)。
 
 \n

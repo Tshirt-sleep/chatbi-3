@@ -283,9 +283,7 @@ def test_uq04_accepts_natural_language_seven_day_ranges() -> None:
 
 def test_uq04_accepts_picker_selected_explicit_date_range() -> None:
     first, result = asyncio.run(
-        _ask_with_clarification(
-            "销售额最高的前 10 个商品是哪些？", "2025-08-17 至 2025-08-23"
-        )
+        _ask_with_clarification("销售额最高的前 10 个商品是哪些？", "2025-08-17 至 2025-08-23")
     )
 
     assert first["status"] == "clarification_required"
@@ -386,6 +384,52 @@ def test_uq06_channel_aov_matches_golden_result() -> None:
     }
 
 
+def test_uq12_channel_template_queries_sales_and_distinct_valid_orders() -> None:
+    engine = create_engine("sqlite://")
+    with engine.begin() as connection:
+        connection.execute(
+            text("CREATE TABLE channels (dataset_id TEXT, channel_id TEXT, channel_name TEXT)")
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE orders "
+                "(dataset_id TEXT, order_id TEXT, channel_id TEXT, "
+                "order_status TEXT, paid_at TEXT, paid_amount_cents INTEGER)"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO channels VALUES ('test', 'ch_a', '渠道 A'), ('test', 'ch_b', '渠道 B')"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO orders VALUES "
+                "('test', 'order_1', 'ch_a', 'paid', '2026-07-10', 1000), "
+                "('test', 'order_2', 'ch_a', 'completed', '2026-07-11', 2500), "
+                "('test', 'order_3', 'ch_a', 'cancelled', '2026-07-12', 9000), "
+                "('test', 'order_4', 'ch_b', 'paid', '2026-08-01', 8000)"
+            )
+        )
+
+    rows, debug = _execute(
+        engine,
+        "uq12_channel_sales_orders",
+        {
+            "dataset_id": "test",
+            "start_inclusive": "2026-07-02",
+            "end_exclusive": "2026-08-01",
+        },
+        "request-test-uq12-template",
+    )
+
+    assert debug.template_id == "uq12_channel_sales_orders"
+    assert [(row["channel_id"], row["order_count"], row["sales_cents"]) for row in rows] == [
+        ("ch_a", 2, 3500),
+        ("ch_b", 0, 0),
+    ]
+
+
 def test_uq11_category_sales_top_ten_requires_time_and_sorts_by_sales() -> None:
     first, result = asyncio.run(_ask_with_clarification("销售额最高的品类有哪些？", "最近 30 天"))
 
@@ -401,12 +445,34 @@ def test_uq11_category_sales_top_ten_requires_time_and_sorts_by_sales() -> None:
 
 
 def test_uq12_channel_sales_and_order_count() -> None:
-    result = asyncio.run(_ask("最近 30 天各渠道销售额和订单数分别是多少？"))
+    result = asyncio.run(_ask("最近一个月各个销售渠道分别卖得怎么样？"))
 
     assert result["status"] == "completed"
-    assert result["debug"]["template_id"] == "uq06_channel_aov"
+    assert result["debug"]["template_id"] == "uq12_channel_sales_orders"
+    assert result["debug"]["query_executed"] is True
+    assert result["interpretation"]["metric_ids"] == ["sales_amount", "order_count"]
+    assert result["interpretation"]["dimension_ids"] == ["channel"]
+    assert result["interpretation"]["time_range"] == {
+        "timezone": "Asia/Shanghai",
+        "start_inclusive": "2026-07-02",
+        "end_exclusive": "2026-08-01",
+    }
+    assert result["interpretation"]["filters"] == [
+        "order_status IN ('paid', 'completed') AND paid_at IS NOT NULL"
+    ]
     channels = {row["label"]: row["values"] for row in result["visualization"]["data"]}
-    assert channels["自营网页"] == {"order_count": 335, "sales_amount": "2365978.00"}
+    assert channels == {
+        "自营网页": {"order_count": 335, "sales_amount": "2365978.00"},
+        "自营App": {"order_count": 288, "sales_amount": "1768847.18"},
+        "微信小程序": {"order_count": 299, "sales_amount": "2156698.15"},
+        "虚构商城A": {"order_count": 298, "sales_amount": "1990020.47"},
+        "虚构商城B": {"order_count": 297, "sales_amount": "2021332.06"},
+    }
+    totals = {item["metric_id"]: item["value"] for item in result["values"]}
+    assert totals == {"sales_amount": "10302875.86", "order_count": 1517}
+    assert result["evidence"]["mock_data"] is True
+    assert result["evidence"]["dataset_id"] == "ecommerce_mock_v1"
+    assert result["evidence"]["dataset_version"]
 
 
 def test_uq08_weekly_category_comparison_matches_golden_result() -> None:
@@ -487,10 +553,63 @@ def test_uq13_recent_period_sales_total_matches_channel_golden_sum() -> None:
     result = asyncio.run(_ask("我这里说的营收就是销售额。请按销售额口径查最近 30 天。"))
 
     assert result["status"] == "completed"
-    assert result["debug"]["template_id"] == "uq13_period_sales_summary"
+    assert result["debug"]["template_id"] == "uq13_period_summary"
     assert result["debug"]["query_executed"] is True
     assert result["interpretation"]["metric_ids"] == ["sales_amount"]
     assert result["values"][0]["value"] == "10302875.86"
+
+
+def test_uq13_recent_period_order_count_total_matches_golden_result() -> None:
+    from backend.chatbi.database import engine
+    from backend.chatbi.query_service import ChatSession, answer_question
+
+    result = answer_question(
+        "最近 30 天订单数是多少？",
+        "test-order-count-range",
+        ChatSession(session_id="test-order-count-range"),
+        engine=engine,
+    )
+
+    assert result.status == "completed"
+    assert result.debug_ref is not None
+    assert result.interpretation.metric_ids == ["order_count"]
+    assert [(item.metric_id, item.value) for item in result.values] == [("order_count", 1517)]
+    assert [row.model_dump() for row in result.visualization.data] == [
+        {"key": "period_summary", "label": "所选期间", "values": {"order_count": 1517}}
+    ]
+
+
+def test_uq09_period_comparison_uses_one_row_per_period() -> None:
+    from backend.chatbi.database import engine
+    from backend.chatbi.query_service import ChatSession, answer_question
+
+    result = answer_question(
+        "订单量涨了但流水没涨，是什么原因？ 比较 2026-07-20 至 2026-07-26 和 2026-07-13 至 2026-07-19",
+        "test-period-table",
+        ChatSession(session_id="test-period-table"),
+        engine=engine,
+    )
+
+    assert result.status == "completed"
+    rows = [row.model_dump() for row in result.visualization.data]
+    assert [row["label"] for row in rows] == [
+        "对比期（2026-07-13 至 2026-07-19）",
+        "当前期（2026-07-20 至 2026-07-26）",
+    ]
+    assert [set(row["values"]) for row in rows] == [
+        {"order_count", "sales_amount", "average_order_value"},
+        {"order_count", "sales_amount", "average_order_value"},
+    ]
+    assert rows[0]["values"] == {
+        "order_count": 351,
+        "sales_amount": "¥2,429,622.38",
+        "average_order_value": "¥6,922.00",
+    }
+    assert rows[1]["values"] == {
+        "order_count": 365,
+        "sales_amount": "¥2,528,070.75",
+        "average_order_value": "¥6,926.22",
+    }
 
 
 def test_explicit_revenue_mapping_without_query_is_acknowledged() -> None:
