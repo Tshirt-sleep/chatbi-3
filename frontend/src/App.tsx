@@ -77,6 +77,7 @@ const API_BASE = (import.meta.env.VITE_CHATBI_API_BASE_URL || "http://127.0.0.1:
   .replace(/\/$/, "");
 const API = `${API_BASE}/api/v1`;
 const PUBLIC_DEMO = import.meta.env.VITE_CHATBI_PUBLIC_DEMO === "true";
+const PRODUCT_INTRO_URL = "/product-intro/";
 const DEMO_API_IDENTITY = "analyst";
 const DEMO_ADMIN_API_IDENTITY = "admin";
 type QueryPerspective = "management" | "operations" | "analyst";
@@ -803,6 +804,7 @@ export default function App() {
     <main className="page-shell">
       <header className="topbar">
         <a className="brand" href="/" aria-label="ChatBI 首页"><span className="brand-mark">C</span><span>ChatBI</span></a>
+        <a className="product-intro-link" href={PRODUCT_INTRO_URL}>产品介绍 <span aria-hidden="true">↗</span></a>
         <label className="dataset-picker">业务主题
           <select value={datasetId} disabled={busy} onChange={(event) => {
             const next = event.target.value as typeof datasetId;

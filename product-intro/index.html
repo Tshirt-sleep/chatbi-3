@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#efeff8" />
+    <meta name="description" content="ChatBI：面向电商经营分析的自然语言问数演示。了解产品定位、使用方式、指标口径与验收方式。" />
+    <title>ChatBI · 让经营问题更容易被问出来</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#top" aria-label="ChatBI 产品介绍首页"><span class="brand-mark">C</span><span>ChatBI</span><small>PRODUCT STORY</small></a>
+      <nav class="nav" aria-label="主导航">
+        <a href="#problem">产品问题</a><a href="#audience">怎么使用</a><a href="#metrics">指标口径</a><a href="#validation">如何验证</a>
+      </nav>
+      <a class="nav-cta" href="https://for-chatbi.netlify.app/" target="_blank" rel="noreferrer">体验演示 <span>↗</span></a>
+      <button class="menu-toggle" aria-label="打开导航" aria-expanded="false">☰</button>
+    </header>
+
+    <main id="top">
+      <div class="intro-showcase">
+        <section class="hero section-wrap">
+        <div class="hero-copy">
+          <p class="eyebrow"><span></span> PRODUCT STORY · VIBE-CODED</p>
+          <h1>让经营问题，<br /><em>更容易被问出来。</em></h1>
+          <p class="hero-lede">一个面向电商经营分析的 ChatBI 演示。把“我想看看最近卖得怎么样”，变成有指标、有口径、能核对的回答。</p>
+          <div class="hero-actions"><a class="button button-dark" href="https://for-chatbi.netlify.app/" target="_blank" rel="noreferrer">打开问数演示 <span>↗</span></a><a class="text-link" href="#experience">先看它如何工作 <span>↓</span></a></div>
+          <p class="hero-note"><span class="status-dot"></span> 当前问数使用合成 Mock 数据 · 查询由固定规则与受控查询完成</p>
+        </div>
+        <div class="hero-visual" aria-label="ChatBI 问数体验示意">
+          <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+          <div class="query-card">
+            <div class="card-top"><span class="mini-brand"><b>C</b> ChatBI</span><span class="demo-pill">MOCK DEMO</span></div>
+            <div class="chat-label">你的问题 <span>今天 10:42</span></div>
+            <div class="question-bubble">最近一个月，哪个销售渠道卖得最好？</div>
+            <div class="answer-head"><span class="spark">✳</span><span>先看渠道销售额与有效订单数</span></div>
+            <div class="metric-row"><div><small>渠道销售额合计</small><strong>¥10.3<span>万</span></strong></div><div><small>有效订单数</small><strong>1,517</strong></div></div>
+            <div class="chart-title">各渠道销售额 <span>最近 30 天</span></div>
+            <div class="bar-list"><div><label>自营网页</label><i><b style="--w:100%"></b></i><small>¥2.36万</small></div><div><label>微信小程序</label><i><b style="--w:91%"></b></i><small>¥2.16万</small></div><div><label>虚构商城 A</label><i><b style="--w:84%"></b></i><small>¥1.99万</small></div><div><label>自营 App</label><i><b style="--w:75%"></b></i><small>¥1.77万</small></div></div>
+            <div class="basis"><span>ⓘ</span> 按支付时间统计 · 有效订单 · Mock 数据</div>
+          </div>
+          <div class="float-tag tag-left"><span>01</span> 先听懂问题</div><div class="float-tag tag-right"><span>02</span> 再核对答案</div>
+          <div class="sun-mark">✳</div>
+        </div>
+      </section>
+        <div class="ticker"><span>ASK IN YOUR OWN WORDS</span><b>✳</b><span>GET AN ANSWER YOU CAN CHECK</span><b>✳</b><span>BUILT WITH PRODUCT JUDGMENT</span></div>
+      </div>
+      <div class="story-layout">
+        <aside class="page-toc" aria-label="页面目录">
+      <p>ON THIS PAGE</p>
+      <nav aria-label="介绍章节">
+        <a href="#problem"><span>01</span> 问题与目标</a>
+        <a href="#audience"><span>02</span> 面向谁用 · 怎么问</a>
+        <a href="#capabilities"><span>03</span> 产品能做什么</a>
+        <a href="#experience"><span>04</span> 一次问数流程</a>
+        <a href="#sessions"><span>05</span> 会话与历史管理</a>
+        <a href="#metrics"><span>06</span> 数据与指标口径</a>
+        <a href="#trust"><span>07</span> 如何建立信任</a>
+        <a href="#validation"><span>08</span> 如何验证效果</a>
+        <a href="#method"><span>09</span> 产品实现方式</a>
+        <a href="#sdd"><span>10</span> SDD 规范驱动</a>
+        <a href="#roadmap"><span>11</span> 当前与下一步</a>
+      </nav>
+    </aside>
+        <div class="story-content">
+          <section id="problem" class="section section-wrap problem-section">
+        <div class="section-kicker">01 / 问题与目标 · THE PRODUCT QUESTION</div>
+        <div class="section-heading"><h2>查数不该先学会<br /><em>怎么找报表。</em></h2><p>经营者通常已经知道自己想问什么，却未必知道指标藏在哪张表、筛选器该怎么设，或该找谁帮忙。ChatBI 从这个体验落差出发：让人先说业务问题，再看清数据答案。</p></div>
+        <div class="pain-grid"><article><span class="pain-no">A</span><h3>问题很自然</h3><p>“最近哪个渠道卖得好？”比记住报表名称和筛选路径更贴近工作现场。</p></article><article><span class="pain-no">B</span><h3>口径常被忽略</h3><p>同一个“销售额”，统计时间、有效订单和退款处理方式不同，答案就可能不同。</p></article><article><span class="pain-no">C</span><h3>答案需要能核对</h3><p>一个数字不够。用户还要知道它按什么时间、哪些订单、什么维度算出来。</p></article></div>
+        <p class="assumption"><span>产品假设</span> 这是基于常见电商分析任务形成的产品假设，不代表已完成真实用户访谈或企业验证。</p>
+      </section>
+
+      <section id="audience" class="section section-wrap usage-section audience-usage-section"><div class="section-kicker">02 / 面向谁使用 · WHAT EACH ROLE CAN ASK</div><div class="section-heading"><h2>面向不同角色，<br /><em>问各自关心的问题。</em></h2><p>进入问数页后可选择管理者、运营/产品经理或数据分析师视角，并参考对应问题示例。角色切换只改变推荐问法和结果解读重点，不代表真实权限，也不会改变指标口径或查询结果。</p></div><div class="usage-role-grid"><article><span>MANAGEMENT · 管理者</span><h3>看规模、趋势和变化</h3><p class="role-audience">适合快速了解整体销售与订单表现的业务负责人。</p><ul><li>“昨天流水和订单量分别是多少？”</li><li>“最近完整月销售额比前一个月高多少？”</li><li>“最近 7 天每天销售额趋势如何？”</li></ul><p class="result-hint"><b>结果会呈现</b> 汇总指标、趋势图或周期对比，并标出统计时间。</p></article><article><span>OPERATIONS · 运营/产品经理</span><h3>看渠道、商品和类目</h3><p class="role-audience">适合跟进商品、渠道与类目经营表现的日常运营角色。</p><ul><li>“近 30 天 GMV 排名前十的 SKU 有哪些？”</li><li>“过去 30 天按品类拆分销售额和订单数。”</li><li>“近 30 天哪些 SKU 的退款订单率最高？”</li></ul><p class="result-hint"><b>结果会呈现</b> 分组排行或明细，帮助定位可继续查看的对象。</p></article><article><span>ANALYST · 数据分析师</span><h3>核对口径、比较和明细</h3><p class="role-audience">适合复核指标定义、统计周期和分组结果的分析协作者。</p><ul><li>“近一周每天的 GMV 走势怎么样？”</li><li>“近 30 天各渠道平均订单金额分别多少？”</li><li>“本周相较上周哪些类目的销售额下滑最多？”</li></ul><p class="result-hint"><b>结果会呈现</b> 指标、时间区间、分组结果和可查看的查询依据。</p></article></div><div class="usage-footnote">示例与结果类型来自当前电商 Mock 演示的支持范围；数值以页面实际查询结果为准。以上是产品使用角色示例，不代表已完成真实用户调研。</div></section>
+
+      <section id="capabilities" class="section section-wrap capabilities">
+  <div class="section-kicker">03 / 产品能力 · WHAT IT CAN ANSWER</div>
+  <div class="section-heading"><h2>不止给一个数字，<br /><em>还要看清怎么得出答案。</em></h2><p>当前公开体验围绕电商合成数据，提供从经营指标查询、维度拆分到结果核对的一组完整能力。具体能问什么，以页面实际支持的指标、时间范围和查询条件为准。</p></div>
+  <div class="capability-detail-grid">
+    <article class="capability-detail"><span class="capability-index">01 · 查经营指标</span><h3>从销售与订单表现开始</h3><p>围绕业务中常看的经营数字进行查询，不需要自己写 SQL。</p><div class="capability-pills"><span>销售额</span><span>有效订单数</span><span>客单价</span><span>商品退款订单率</span></div><small>退款订单率按商品维度统计；当前不支持退款金额或退款金额率。</small></article>
+    <article class="capability-detail"><span class="capability-index">02 · 拆分表现</span><h3>比较不同时间和业务对象</h3><p>把整体指标拆成可以继续查看的分组或周期，找到差异出现在哪里。</p><div class="capability-pills"><span>日期 / 日、周、月</span><span>商品</span><span>叶子类目</span><span>销售渠道</span></div><small>支持按已定义的条件分组、排序、Top N 和明确周期对比；未登记的维度不会自动推断。</small></article>
+    <article class="capability-detail"><span class="capability-index">03 · 看结果</span><h3>数字、图表和表格配合查看</h3><p>根据查询结果展示指标卡、趋势图、柱状图或明细表，帮助用户从汇总看到分组数据。</p><div class="capability-pills"><span>指标卡</span><span>趋势图</span><span>柱状图</span><span>可排序表格</span><span>CSV 导出</span></div><small>图表形式随问题和结果类型变化；表格可排序并导出当前结果。</small></article>
+    <article class="capability-detail"><span class="capability-index">04 · 先澄清再查询</span><h3>关键信息不完整时先补齐</h3><p>缺少必要时间范围、比较周期或指标含义存在歧义时，先提示用户确认，不默默套用默认值。</p><div class="capability-pills"><span>日期范围选择</span><span>周期比较补充</span><span>歧义术语确认</span></div><small>澄清完成后，再按用户补充的条件发起查询。</small></article>
+    <article class="capability-detail"><span class="capability-index">05 · 核对答案</span><h3>查看指标定义和统计条件</h3><p>结果中可以核对实际使用的指标、时间范围、分组维度、筛选条件和查询依据。</p><div class="capability-pills"><span>业务定义</span><span>统计时间</span><span>分组条件</span><span>查询依据</span></div><small>例如当前销售额按支付时间统计有效订单折后实付金额，退款不从销售额中扣减。</small></article>
+    <article class="capability-detail capability-boundary"><span class="capability-index">06 · 明确能力边界</span><h3>不支持的内容会说明原因</h3><p>遇到未定义指标、超出数据窗口或非问数问题时，系统会提示不支持或要求澄清，而不是编造一个看似合理的数值。</p><div class="capability-pills"><span>不执行任意 SQL</span><span>不做无依据归因</span><span>不连接真实业务数据</span></div><small>当前版本使用固定规则解析与受控查询。</small></article>
+  </div>
+  <div class="capability-footnote"><b>当前数据范围</b><span>电商合成 Mock 数据 · 仅支持语义目录已定义的指标与维度 · 查询结果不代表真实经营情况</span></div>
+</section>
+
+      <section id="experience" class="section experience-section">
+  <div class="section-wrap">
+    <div class="section-kicker">04 / 一次问数流程 · HOW A QUERY REALLY WORKS</div>
+    <div class="section-heading"><h2>从一个受支持的问题，<br /><em>到可核对的查询结果。</em></h2><p>当前版本由固定规则识别已支持的问题，再经过服务端校验和受控查询，不覆盖任意表达。你可以点示例问题，也可以输入自己想查的业务问题；不明确或超出范围时，系统会先澄清或说明暂不支持。</p></div>
+    <div class="steps">
+      <article><span class="step-num">01</span><div class="step-icon">✎</div><h3>选择视角，提出问题</h3><p>选择管理者、运营/产品经理或数据分析师视角，点击推荐示例，或输入当前支持范围内的问题。</p><small>例如：“最近 30 天各渠道销售额和订单数分别是多少？”</small></article>
+      <article><span class="step-num">02</span><div class="step-icon">⌕</div><h3>固定规则识别问题</h3><p>系统按已配置的规则和语义目录解析问题类型、指标、维度及时间范围；角色只影响推荐问题和结果解读重点。</p><small>固定规则只覆盖已支持的表达方式。</small></article>
+      <article><span class="step-num">03</span><div class="step-icon">✓</div><h3>校验后再执行查询</h3><p>服务端检查问题是否属于允许的指标、维度和查询模板。需要补充时间或澄清含义时，先让用户选择/补充，确认前不执行查询。</p><small>未知术语、超范围问题会提示原因，不会编造数据。</small></article>
+      <article><span class="step-num">04</span><div class="step-icon">▥</div><h3>查看结果并继续核对</h3><p>查询成功后，根据结果展示指标卡、图表或表格，并附上统计时间、指标口径和分组条件；可继续提问、排序或导出表格。</p><small>最终结果来自固定 Mock 数据与受控查询。</small></article>
+    </div>
+    <div class="flow-note"><span>当前流程边界</span> 先用规则识别已支持的问题，再经服务端校验后查询；信息不足时先澄清，未通过校验则不执行。</div>
+  </div>
+</section>
+
+      <section id="sessions" class="section section-wrap sessions-section"><div class="section-kicker">05 / 会话与历史管理 · KEEP OR CLEAR YOUR WORK</div><div class="section-heading"><h2>每次分析都能接着看，<br /><em>也能由你清理。</em></h2><p>问数页的左侧/顶部会话控件可新建、切换或删除会话；每条问答也能单独从本地页面历史中移除。</p></div><div class="session-feature-grid"><article><span>01 · 新建与切换</span><h3>按主题保留多段会话</h3><p>新问题可以开新会话；从会话列表切回之前的本地提问和回答。</p></article><article><span>02 · 删除当前会话</span><h3>清理一整段本地历史</h3><p>点击“删除当前会话”并确认后，该会话及其本地消息从浏览器历史中移除。</p></article><article><span>03 · 删除单条问答</span><h3>只从页面移除这一条</h3><p>单条删除会让这条提问和回答不再显示在本地页面，但后台运行态历史不会因此删除。</p></article></div><div class="storage-note"><b>保存在哪里？</b><span>会话列表与内容保存在当前浏览器的 localStorage；不登录、不跨浏览器/设备同步。后端运行会话在服务进程内存中，服务重启可能清空。请勿把演示站当作云端档案库。</span></div></section>
+
+      <section id="metrics" class="section section-wrap metrics-section"><div class="section-kicker">06 / 数据与指标口径 · WHAT THE NUMBERS MEAN</div><div class="section-heading"><h2>数字先说清定义，<br /><em>再拿来比较。</em></h2><p>当前公开体验使用固定合成电商数据集。答案区可查看指标定义、统计时间、分组条件和结果依据；“销售额”不等于扣除退款后的实收。</p></div><div class="metric-cards"><article><span>销售额</span><p>有效订单折后实付金额之和；按支付时间统计，不扣退款。</p></article><article><span>有效订单数</span><p>符合有效订单条件的去重订单数。</p></article><article><span>客单价</span><p>按目录定义的销售额与有效订单数计算，可按支持维度拆分。</p></article><article><span>退款订单率</span><p>当前支持商品维度的退款订单率；不是退款金额或退款金额率。</p></article></div><div class="metric-meta"><b>当前演示数据</b><span>电商合成 Mock 数据 · 统计时区 Asia/Shanghai · 数据窗口 2025-08-01 至 2026-07-31</span><span>常用维度：日期、商品、叶子类目、销售渠道</span><span>暂不支持：退款金额、客户终身价值（LTV）</span></div></section>
+
+      <section id="trust" class="section trust-section"><div class="section-wrap trust-inner"><div class="trust-copy"><div class="section-kicker">07 / 答案如何值得信任 · TRUST THROUGH EVIDENCE</div><h2>每个答案，<br /><em>都要能说明依据。</em></h2><p>公开版使用固定规则识别问题，并由服务端按语义目录和受控查询模板读取电商合成数据。结果卡会展示指标定义和解析条件；需要补充信息时先暂停查询，超出支持范围时给出提示。</p><p class="trust-current-note">公开版使用固定规则和 Mock 数据；所有数值由后端查询产生。</p></div><div class="trust-cards"><article><span>数据来源可说明</span><p>展示电商 Mock 数据集及版本，结果不是实际经营数据。</p></article><article><span>指标口径可核对</span><p>查看销售额、订单数等指标定义，以及统计时间和分组维度。</p></article><article><span>条件不足先暂停</span><p>缺少必要时间或存在歧义时先要求补充；澄清前不执行查询。</p></article><article><span>超范围明确反馈</span><p>未知术语或不支持的问题会返回提示，不生成查询数字。</p></article><div class="mock-stamp">SYNTHETIC DATA<br />MOCK ONLY</div></div></div></section>
+
+      <section id="validation" class="section section-wrap validation-section"><div class="section-kicker">08 / 如何验证效果 · CHECK THE PRODUCT WITH EVIDENCE</div><div class="section-heading"><h2>不只确认页面可用，<br /><em>还要核对每个关键结果。</em></h2><p>项目用固定问题、预期结果和异常场景验证“问题是否进入正确范围、查询是否遵守口径、页面是否如实展示”。相关验收覆盖当前固定规则问数范围，不代表已覆盖所有自然表达或真实用户场景。</p></div><div class="validation-table"><div class="validation-row head"><span>验收环节</span><span>项目实际检查</span><span>检查目标</span></div><div class="validation-row"><b>支持范围</b><span>黄金问题集中的标准问法与查询类型</span><span>只进入已定义的指标、维度和固定查询能力</span></div><div class="validation-row"><b>澄清与拒答</b><span>缺少时间、含义歧义、未知指标和越界问题</span><span>先澄清或说明不支持；未满足条件不查询</span></div><div class="validation-row"><b>结果与口径</b><span>对照 Mock 固定预期及 SQLite / Supabase 结果</span><span>数值、指标定义、时间范围和分组条件相符</span></div><div class="validation-row"><b>页面交互</b><span>图表/表格展示、列排序和 CSV 导出</span><span>导出内容与当前表格一致，不触发额外查询</span></div></div><div class="evidence-note"><span>已有验收记录</span><p>P6 HTTP Golden：10 个用例、54 项检查通过；SQLite 与 Supabase 结果对照一致。Linux CI 持续回归 API 与问数用例。以上是固定测试集的证据，不等于真实用户覆盖率。</p></div></section>
+
+      <section id="method" class="section method-section"><div class="section-wrap method-inner"><div><div class="section-kicker">09 / 产品实现方式 · PRODUCT MANAGEMENT × VIBE CODING</div><h2>先做产品判断，<br /><em>再让原型接受验证。</em></h2><p>这是 AI 产品经理以 Vibe Coding 推进的 ChatBI 项目。重点不只是快速做出页面，而是先选定使用场景、定义数据口径和能力边界，再用可体验的版本及验收结果不断修正产品。</p><p class="method-note">用户角色、痛点和优先级目前是产品假设；项目尚未以真实用户研究证明普遍需求。</p></div><div class="method-list"><div><span>01</span><b>从任务出发</b><small>明确谁要看什么经营表现，以及想据此做什么。</small></div><div><span>02</span><b>限定首期范围</b><small>先用电商合成数据，确定支持的指标、维度和时间规则。</small></div><div><span>03</span><b>快速形成体验</b><small>借助 Vibe Coding 把产品流程做成可操作的问数原型。</small></div><div><span>04</span><b>用证据持续修正</b><small>检查标准问题、边界场景、查询结果和实际页面交互。</small></div></div></div></section>
+
+      <section id="sdd" class="section sdd-section"><div class="section-wrap"><div class="section-kicker">10 / SDD 规范驱动开发 · SPEC-DRIVEN DEVELOPMENT</div><div class="section-heading"><h2>把产品意图写成规范，<br /><em>让实现和验收有共同依据。</em></h2><p>SDD 是这个项目的重要工作主线：先明确用户目标和范围，再写清指标含义、系统行为与完成标准。编码工具按规范实现，产品经理再用验收证据检查是否符合预期。</p></div><div class="sdd-grid"><article><span>01 · PRODUCT</span><h3>PRD 明确用户与目标</h3><p>定义主要使用角色、典型任务、首期目标和暂不支持事项，避免把产品假设包装成已验证事实。</p></article><article><span>02 · BEHAVIOR</span><h3>SDD 写清系统规则</h3><p>约定识别哪些问题、何时澄清、超范围如何反馈，以及什么条件下才允许查询。</p></article><article><span>03 · SEMANTICS</span><h3>语义目录固定业务口径</h3><p>维护指标、别名、维度、时间和数据范围；销售额等指标在查询过程中不临时改变定义。</p></article><article><span>04 · ACCEPTANCE</span><h3>黄金问题定义验收证据</h3><p>为标准问法、补充条件、拒答场景和预期结果建立检查项，确保需求、实现和结果可以对照。</p></article></div><div class="sdd-example"><div><span class="road-label">从问题到验收 · ONE SPECIFIC EXAMPLE</span><h3>“昨天销售额和有效订单数分别是多少？”</h3></div><div class="sdd-example-flow"><span>指标定义</span><b>→</b><span>上海时区与支付日期</span><b>→</b><span>有效订单过滤</span><b>→</b><span>对照固定结果</span></div><p>规范明确：销售额按有效订单折后实付金额计算，按支付时间归属，退款不扣减；结果需与 Mock 黄金值和页面口径说明一致。</p></div></div></section>
+
+      <section id="roadmap" class="section section-wrap roadmap-section"><div class="section-kicker">11 / 当前版本与下一步 · WHAT IS AVAILABLE NOW</div><div class="roadmap-head"><h2>先把公开版能力讲清楚，<br /><em>下一步再由证据决定。</em></h2><span class="version-badge">PUBLIC ECOMMERCE MOCK DEMO</span></div><div class="roadmap-grid"><article class="now-card"><span class="road-label">NOW · 当前公开版</span><h3>固定规则的电商问数演示</h3><p>合成电商数据、受控指标与查询、澄清/拒答、答案依据、会话历史和结果表格交互。</p><b>公开版采用固定规则问数</b></article><article><span class="road-label">NEXT · 待验证方向</span><h3>补齐用户常见问法</h3><p>收集实际提问样例，识别现有规则难以覆盖的表达，再评估是否扩展同义词与规则。</p><small>方向建议 · 尚无上线承诺</small></article><article><span class="road-label">LATER · 后续评估</span><h3>扩展数据解读体验</h3><p>先验证用户是否需要趋势摘要或变化拆解，并为结论定义数据依据与验收办法。</p><small>探索方向 · 当前不是已上线能力</small></article></div><p class="roadmap-boundary">路线方向需根据用户反馈、数据口径和验收结果再决定；不代表已排期或已实现。</p></section>
+
+        </div>
+      </div>
+      <section class="closing"><div class="closing-mark">C</div><p class="section-kicker">A SMALL PRODUCT, A CLEAR POINT OF VIEW</p><h2>让提问更自然，<br />让答案仍然<em>有据可查。</em></h2><p>欢迎亲自试试 ChatBI 电商 Mock 演示。</p><a class="button button-light" href="https://for-chatbi.netlify.app/" target="_blank" rel="noreferrer">进入问数演示 <span>↗</span></a><small>演示数据为合成 Mock，不代表真实经营情况。</small></section>
+    </main>
+    <footer class="footer"><a class="brand" href="#top"><span class="brand-mark">C</span><span>ChatBI</span></a><p>固定规则解析问题，答案由可核对的数据查询产生。</p><a href="https://for-chatbi.netlify.app/" target="_blank" rel="noreferrer">访问问数演示 ↗</a><span>© 2026 · Product concept & demo</span></footer>
+    <script src="./script.js"></script>
+  </body>
+</html>

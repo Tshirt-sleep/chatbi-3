@@ -40,6 +40,9 @@ button:focus-visible, textarea:focus-visible, select:focus-visible, summary:focu
 }
 .brand { display: inline-flex; align-items: center; gap: 10px; flex: 0 0 auto; color: #514b92; font-size: 17px; font-weight: 760; letter-spacing: -.025em; text-decoration: none; }
 .brand-mark { display: grid; width: 31px; height: 31px; place-items: center; border: 1px solid #f3a18f; border-radius: 9px; color: #fff; background: var(--purple); font-size: 15px; font-weight: 750; box-shadow: 0 4px 12px rgb(104 88 216 / 18%); }
+.product-intro-link { flex: 0 0 auto; color: #6257ae; font-size: 13px; font-weight: 700; text-decoration: none; white-space: nowrap; }
+.product-intro-link:hover { color: var(--purple); text-decoration: underline; text-underline-offset: 4px; }
+.product-intro-link + .dataset-picker { margin-left: auto; }
 .dataset-picker { display: flex; align-items: center; gap: 6px; margin-left: auto; color: #4b5563; font-size: 13px; font-weight: 750; white-space: nowrap; }
 .dataset-picker + .dataset-picker { margin-left: 0; }
 .dataset-picker select { min-width: 106px; padding: 10px 16px; border: 1.5px solid #d9d7ef; border-radius: 999px; color: #514b92; background: #fff; font-size: 13px; font-weight: 650; transition: border-color .16s ease, background .16s ease, box-shadow .16s ease; }
